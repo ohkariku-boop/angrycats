@@ -3,27 +3,32 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { type Cat } from "@/lib/supabase";
 import { fetchCatsInBounds } from "@/lib/api";
-import { CatIcon } from "./CatIcon";
 
 type WorldMapProps = {
   onCatClick: (cat: Cat) => void;
   refreshKey: number;
 };
 
-function createCatIcon(mood: "angry" | "happy", zoom: number): L.DivIcon {
-  // Scale icon size with zoom level for a satisfying zoom experience
-  const baseSize = zoom < 4 ? 14 : zoom < 8 ? 18 : 24;
-  const scale = Math.min(1.8, Math.max(0.5, zoom / 5));
-  const size = Math.round(baseSize * scale);
+// Cache DivIcons by "mood-size" so we don't rebuild SVG on every marker
+const iconCache = new Map<string, L.DivIcon>();
 
-  return L.divIcon({
+function getCatDivIcon(mood: "angry" | "happy", zoom: number): L.DivIcon {
+  const size =
+    zoom < 4 ? 12 : zoom < 6 ? 16 : zoom < 9 ? 20 : zoom < 12 ? 24 : 28;
+  const key = `${mood}-${size}`;
+  let icon = iconCache.get(key);
+  if (icon) return icon;
+
+  icon = L.divIcon({
     className: "cat-marker",
-    html: `<div class="cat-marker-inner mood-${mood}" style="width:${size}px;height:${size}px;">
+    html: `<div class="cat-marker-inner mood-${mood}" style="width:${size}px;height:${size}px">
       ${mood === "angry" ? angrySvg(size) : happySvg(size)}
     </div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
+  iconCache.set(key, icon);
+  return icon;
 }
 
 function angrySvg(size: number): string {
@@ -56,19 +61,40 @@ function happySvg(size: number): string {
   </svg>`;
 }
 
+function limitForZoom(zoom: number): number {
+  // Fewer markers at low zoom = smoother pan/zoom
+  if (zoom < 3) return 1200;
+  if (zoom < 5) return 2000;
+  if (zoom < 8) return 3500;
+  if (zoom < 11) return 5000;
+  return 7000;
+}
+
+/** Use lightweight canvas circles below this zoom; detailed cat icons above */
+const DETAIL_ZOOM = 6;
+
 export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const markersRef = useRef<L.Marker[]>([]);
+  const layerRef = useRef<L.LayerGroup | null>(null);
   const [loading, setLoading] = useState(false);
   const [visibleCount, setVisibleCount] = useState(0);
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestIdRef = useRef(0);
+  const lastFetchRef = useRef<{
+    zoomBucket: number;
+    south: number;
+    west: number;
+    north: number;
+    east: number;
+  } | null>(null);
+  const onCatClickRef = useRef(onCatClick);
+  onCatClickRef.current = onCatClick;
 
-  // Initialize map
+  // Initialize map once
   useEffect(() => {
     if (mapRef.current || !containerRef.current) return;
 
-    // Single world copy only — no horizontal wrap / repeat when panning or zooming
     const worldBounds = L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180));
 
     const map = L.map(containerRef.current, {
@@ -81,31 +107,40 @@ export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
       maxBounds: worldBounds,
       maxBoundsViscosity: 1.0,
       preferCanvas: true,
+      // Smoother zoom animation
+      zoomAnimation: true,
+      markerZoomAnimation: false, // skip marker CSS zoom anim — big win with many markers
+      fadeAnimation: true,
     });
 
-    // Free dark basemap (no API key required), noWrap prevents tile repeat
     L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
       {
-        attribution:
-          "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
+        attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
         maxZoom: 16,
         noWrap: true,
         bounds: worldBounds,
+        keepBuffer: 2,
+        updateWhenZooming: false, // wait until zoom ends to fetch tiles
+        updateWhenIdle: true,
       }
     ).addTo(map);
 
+    const layer = L.layerGroup().addTo(map);
+    layerRef.current = layer;
     mapRef.current = map;
 
     return () => {
       map.remove();
       mapRef.current = null;
+      layerRef.current = null;
     };
   }, []);
 
-  const loadCats = useCallback(async () => {
+  const loadCats = useCallback(async (force = false) => {
     const map = mapRef.current;
-    if (!map) return;
+    const layer = layerRef.current;
+    if (!map || !layer) return;
 
     const bounds = map.getBounds();
     const zoom = map.getZoom();
@@ -113,73 +148,110 @@ export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
     const west = bounds.getWest();
     const north = bounds.getNorth();
     const east = bounds.getEast();
+    const zoomBucket = Math.floor(zoom);
 
+    // Skip fetch if view barely changed (same zoom bucket + ~80% overlap)
+    const prev = lastFetchRef.current;
+    if (!force && prev && prev.zoomBucket === zoomBucket) {
+      const latSpan = Math.max(north - south, 0.001);
+      const lngSpan = Math.max(east - west, 0.001);
+      const same =
+        Math.abs(prev.south - south) / latSpan < 0.25 &&
+        Math.abs(prev.north - north) / latSpan < 0.25 &&
+        Math.abs(prev.west - west) / lngSpan < 0.25 &&
+        Math.abs(prev.east - east) / lngSpan < 0.25;
+      if (same) return;
+    }
+
+    const reqId = ++requestIdRef.current;
     setLoading(true);
 
-    // Scale limits with zoom: more cats visible as you zoom in
-    const limit = zoom < 3 ? 2000 : zoom < 5 ? 3500 : zoom < 8 ? 5000 : zoom < 12 ? 7000 : 10000;
-
+    const limit = limitForZoom(zoom);
     const cats = await fetchCatsInBounds(south, west, north, east, limit);
 
-    // Clear old markers
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current = [];
+    // Ignore stale responses (user zoomed again while loading)
+    if (reqId !== requestIdRef.current) return;
 
-    // Add new markers
-    for (const cat of cats) {
-      const icon = createCatIcon(cat.mood, zoom);
-      const marker = L.marker([cat.lat, cat.lng], { icon });
-      marker.on("click", () => onCatClick(cat));
-      marker.addTo(map);
-      markersRef.current.push(marker);
+    lastFetchRef.current = { zoomBucket, south, west, north, east };
+
+    // Clear previous markers in one shot
+    layer.clearLayers();
+
+    const useDetail = zoom >= DETAIL_ZOOM;
+    const angryColor = "#FF6B6B";
+    const happyColor = "#FFD56B";
+
+    // Build markers — canvas circles when zoomed out, cat icons when zoomed in
+    if (useDetail) {
+      for (const cat of cats) {
+        const marker = L.marker([cat.lat, cat.lng], {
+          icon: getCatDivIcon(cat.mood, zoom),
+          interactive: true,
+        });
+        marker.on("click", () => onCatClickRef.current(cat));
+        layer.addLayer(marker);
+      }
+    } else {
+      const radius = zoom < 3 ? 2 : zoom < 5 ? 3 : 4;
+      for (const cat of cats) {
+        const marker = L.circleMarker([cat.lat, cat.lng], {
+          radius,
+          color: cat.mood === "happy" ? happyColor : angryColor,
+          fillColor: cat.mood === "happy" ? happyColor : angryColor,
+          fillOpacity: 0.85,
+          weight: 0,
+          interactive: true,
+        });
+        marker.on("click", () => onCatClickRef.current(cat));
+        layer.addLayer(marker);
+      }
     }
 
     setVisibleCount(cats.length);
     setLoading(false);
-  }, [onCatClick]);
+  }, []);
 
-  // Load cats on map move (debounced)
+  // Debounced reload on move/zoom end
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    const handleMove = () => {
+    const schedule = () => {
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
-      fetchTimeoutRef.current = setTimeout(() => {
-        loadCats();
-      }, 300);
+      // Slightly longer debounce while zooming feels smoother
+      fetchTimeoutRef.current = setTimeout(() => loadCats(false), 200);
     };
 
-    map.on("moveend", handleMove);
-    map.on("zoomend", handleMove);
+    map.on("moveend", schedule);
+    map.on("zoomend", schedule);
 
-    // Initial load
-    loadCats();
+    // Initial load once map is ready
+    loadCats(true);
 
     return () => {
-      map.off("moveend");
-      map.off("zoomend");
+      map.off("moveend", schedule);
+      map.off("zoomend", schedule);
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
     };
   }, [loadCats]);
 
-  // Reload when refreshKey changes (e.g., after making a cat happy)
   useEffect(() => {
-    if (refreshKey > 0) {
-      loadCats();
-    }
+    if (refreshKey > 0) loadCats(true);
   }, [refreshKey, loadCats]);
 
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
       {loading && (
-        <div className="absolute top-4 right-4 z-[1000] bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2 text-white text-sm font-medium">
+        <div className="absolute top-4 right-4 z-[1000] bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2 text-white text-sm font-medium pointer-events-none">
           Loading cats...
         </div>
       )}
-      <div className="absolute bottom-4 right-4 z-[1000] bg-black/70 backdrop-blur-sm rounded-lg px-3 py-1.5 text-white text-xs">
-        Showing {visibleCount} cats in view
+      <div className="absolute bottom-4 right-4 z-[1000] bg-black/70 backdrop-blur-sm rounded-lg px-3 py-1.5 text-white text-xs pointer-events-none">
+        Showing {visibleCount.toLocaleString()} cats in view
+        {mapRef.current && mapRef.current.getZoom() < DETAIL_ZOOM
+          ? " · zoom in for faces"
+          : ""}
       </div>
     </div>
   );
