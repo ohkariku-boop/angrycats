@@ -68,24 +68,30 @@ export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
   useEffect(() => {
     if (mapRef.current || !containerRef.current) return;
 
+    // Single world copy only — no horizontal wrap / repeat when panning or zooming
+    const worldBounds = L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180));
+
     const map = L.map(containerRef.current, {
       center: [20, 0],
       zoom: 2,
       minZoom: 2,
-      maxZoom: 20,
+      maxZoom: 16,
       zoomControl: true,
-      worldCopyJump: true,
-      maxBoundsViscosity: 0.8,
+      worldCopyJump: false,
+      maxBounds: worldBounds,
+      maxBoundsViscosity: 1.0,
       preferCanvas: true,
     });
 
-    // Free dark basemap (no API key required)
+    // Free dark basemap (no API key required), noWrap prevents tile repeat
     L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
       {
         attribution:
           "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
         maxZoom: 16,
+        noWrap: true,
+        bounds: worldBounds,
       }
     ).addTo(map);
 
