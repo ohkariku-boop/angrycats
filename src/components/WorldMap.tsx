@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, type FormEvent } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { type Cat } from "@/lib/supabase";
@@ -79,6 +79,9 @@ export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
   const layerRef = useRef<L.LayerGroup | null>(null);
   const [loading, setLoading] = useState(false);
   const [visibleCount, setVisibleCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdRef = useRef(0);
   const lastFetchRef = useRef<{
@@ -239,9 +242,101 @@ export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
     if (refreshKey > 0) loadCats(true);
   }, [refreshKey, loadCats]);
 
+  const searchLocation = useCallback(async (e?: FormEvent) => {
+    e?.preventDefault();
+    const q = searchQuery.trim();
+    if (!q || !mapRef.current) return;
+
+    setSearching(true);
+    setSearchError(null);
+
+    try {
+      // OpenStreetMap Nominatim — free, no API key (fair-use)
+      const url =
+        "https://nominatim.openstreetmap.org/search?" +
+        new URLSearchParams({
+          q,
+          format: "json",
+          limit: "1",
+          addressdetails: "0",
+        }).toString();
+
+      const res = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      if (!res.ok) throw new Error("Search failed");
+
+      const results = (await res.json()) as Array<{
+        lat: string;
+        lon: string;
+        display_name: string;
+        boundingbox?: [string, string, string, string];
+      }>;
+
+      if (!results.length) {
+        setSearchError("No place found. Try another name.");
+        return;
+      }
+
+      const place = results[0];
+      const map = mapRef.current;
+
+      if (place.boundingbox) {
+        // boundingbox: [south, north, west, east]
+        const [south, north, west, east] = place.boundingbox.map(Number);
+        const bounds = L.latLngBounds(
+          L.latLng(south, west),
+          L.latLng(north, east)
+        );
+        map.fitBounds(bounds.pad(0.08), { maxZoom: 12, animate: true });
+      } else {
+        map.flyTo([Number(place.lat), Number(place.lon)], 10, { duration: 1.2 });
+      }
+    } catch {
+      setSearchError("Couldn't search right now. Try again.");
+    } finally {
+      setSearching(false);
+    }
+  }, [searchQuery]);
+
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
+
+      {/* Location search */}
+      <form
+        onSubmit={searchLocation}
+        className="absolute top-16 left-1/2 -translate-x-1/2 z-[1000] w-[min(92vw,380px)] pointer-events-auto"
+      >
+        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#140f0e]/85 backdrop-blur-md shadow-xl p-1.5">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setSearchError(null);
+            }}
+            placeholder="Search country, city, town..."
+            className="flex-1 min-w-0 bg-transparent px-3 py-2 text-sm text-[#f6efe6] placeholder-white/35 focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={searching || !searchQuery.trim()}
+            className="shrink-0 rounded-xl bg-[#ff5c5c] text-[#140f0e] font-semibold text-sm px-3.5 py-2 disabled:opacity-40 hover:brightness-110 transition"
+          >
+            {searching ? "..." : "Go"}
+          </button>
+        </div>
+        {searchError && (
+          <p className="mt-1.5 text-center text-xs text-[#ff5c5c] bg-black/50 rounded-lg px-2 py-1">
+            {searchError}
+          </p>
+        )}
+      </form>
+
       {loading && (
         <div className="absolute top-4 right-4 z-[1000] bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2 text-white text-sm font-medium pointer-events-none">
           Loading cats...
