@@ -4,6 +4,8 @@ import { fileURLToPath, URL } from 'node:url';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Required for GitHub Pages project site: https://ohkariku-boop.github.io/angrycats/
+  base: '/angrycats/',
   plugins: [react()],
   resolve: {
     alias: {
