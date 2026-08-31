@@ -16,16 +16,14 @@ export async function fetchStats(): Promise<GlobalStats | null> {
   return data;
 }
 
-export async function fetchCatsInBounds(
+async function rpcCats(
   south: number,
   west: number,
   north: number,
   east: number,
-  limit: number = 500
+  limit: number,
+  rowOffset: number
 ): Promise<Cat[]> {
-  // Random offset so different cats appear each time the map loads
-  const rowOffset = Math.floor(Math.random() * 500);
-
   const { data, error } = await supabase.rpc("get_random_cats", {
     south,
     west,
@@ -34,14 +32,69 @@ export async function fetchCatsInBounds(
     cat_limit: limit,
     row_offset: rowOffset,
   });
-
   if (error) {
     console.error("Failed to fetch cats:", error);
     return [];
   }
+  return (data ?? []) as Cat[];
+}
 
-  // Shuffle results client-side so different cats appear each load
-  const cats = (data ?? []) as Cat[];
+export async function fetchCatsInBounds(
+  south: number,
+  west: number,
+  north: number,
+  east: number,
+  limit: number = 500
+): Promise<Cat[]> {
+  const rowOffset = Math.floor(Math.random() * 200);
+  const span = east > west ? east - west : 360 - (west - east);
+
+  // World / large view: fetch several longitude bands in parallel for even scatter
+  if (span > 120) {
+    const bands = 8;
+    const perBand = Math.ceil(limit / bands);
+    const bandWidth = span / bands;
+    const startWest = east > west ? west : west; // normalized caller
+
+    const promises: Promise<Cat[]>[] = [];
+    for (let i = 0; i < bands; i++) {
+      let bWest = startWest + i * bandWidth;
+      let bEast = startWest + (i + 1) * bandWidth;
+      // clamp into [-180, 180]
+      if (bWest > 180) bWest -= 360;
+      if (bEast > 180) bEast -= 360;
+      if (bWest < -180) bWest += 360;
+      if (bEast < -180) bEast += 360;
+      // if band crosses antimeridian, skip split here (rare with 8 bands from -180)
+      if (bWest > bEast) {
+        promises.push(rpcCats(south, bWest, north, 180, Math.ceil(perBand / 2), rowOffset + i));
+        promises.push(rpcCats(south, -180, north, bEast, Math.ceil(perBand / 2), rowOffset + i));
+      } else {
+        promises.push(rpcCats(south, bWest, north, bEast, perBand, rowOffset + i * 17));
+      }
+    }
+
+    const results = await Promise.all(promises);
+    const cats = results.flat();
+
+    // Dedupe by id and shuffle
+    const seen = new Set<number>();
+    const unique: Cat[] = [];
+    for (const c of cats) {
+      if (!seen.has(c.id)) {
+        seen.add(c.id);
+        unique.push(c);
+      }
+    }
+    for (let i = unique.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [unique[i], unique[j]] = [unique[j], unique[i]];
+    }
+    return unique.slice(0, limit);
+  }
+
+  // Normal (zoomed-in) view: single query
+  const cats = await rpcCats(south, west, north, east, limit, rowOffset);
   for (let i = cats.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [cats[i], cats[j]] = [cats[j], cats[i]];
@@ -86,7 +139,6 @@ export async function makeCatHappyDirect(
   catId: number,
   name?: string
 ): Promise<boolean> {
-  // Prefer edge function when available
   try {
     const res = await fetch(FUNCTION_URL, {
       method: "POST",
@@ -106,10 +158,9 @@ export async function makeCatHappyDirect(
       if (data.success === true) return true;
     }
   } catch {
-    // fall through to direct client update
+    // fall through
   }
 
-  // Fallback: update directly via Supabase client (RLS allows it)
   const { data, error } = await supabase
     .from("cats")
     .update({
