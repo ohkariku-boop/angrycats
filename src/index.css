@@ -2,32 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Leaflet map dark theme adjustments */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  background: #140f0e;
+  color: #f6efe6;
+}
+
+h1, h2, h3, .font-display {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+}
+
 .leaflet-container {
-  background: #0a0a0a;
+  background: #1a1412;
   font-family: inherit;
 }
 
 .leaflet-control-zoom a {
-  background: rgba(0, 0, 0, 0.7) !important;
-  color: white !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(20, 15, 14, 0.85) !important;
+  color: #f6efe6 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
 .leaflet-control-zoom a:hover {
-  background: rgba(0, 0, 0, 0.9) !important;
+  background: rgba(40, 28, 24, 0.95) !important;
 }
 
 .leaflet-control-attribution {
-  background: rgba(0, 0, 0, 0.6) !important;
-  color: rgba(255, 255, 255, 0.4) !important;
+  background: rgba(20, 15, 14, 0.7) !important;
+  color: rgba(246, 239, 230, 0.35) !important;
 }
 
 .leaflet-control-attribution a {
-  color: rgba(255, 255, 255, 0.6) !important;
+  color: rgba(246, 239, 230, 0.55) !important;
 }
 
-/* Cat marker styling */
 .cat-marker {
   background: transparent !important;
   border: none !important;
@@ -38,15 +51,14 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: transform 0.15s ease;
 }
 
 .cat-marker-inner:hover {
-  transform: scale(1.4);
+  transform: scale(1.35);
   z-index: 1000;
 }
 
-/* Slow bounce animation for modal cat */
 @keyframes bounce-slow {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
@@ -56,12 +68,38 @@
   animation: bounce-slow 2s ease-in-out infinite;
 }
 
-/* Fade in animation */
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-10px) rotate(2deg); }
 }
 
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out;
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.btn-primary {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 700;
+  border-radius: 9999px;
+  padding: 0.875rem 1.75rem;
+  transition: all 0.2s;
+  background: linear-gradient(135deg, #ff5c5c, #ff8a5c);
+  color: #140f0e;
+  box-shadow: 0 8px 24px rgba(255, 92, 92, 0.35);
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 32px rgba(255, 92, 92, 0.45);
+}
+
+.btn-primary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

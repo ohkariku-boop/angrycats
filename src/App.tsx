@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from "react";
 import { WorldMap } from "@/components/WorldMap";
 import { StatsCounter } from "@/components/StatsCounter";
 import { CatModal } from "@/components/CatModal";
-import { fetchStats, fetchCatById } from "@/lib/api";
+import { fetchStats } from "@/lib/api";
 import type { Cat, GlobalStats } from "@/lib/supabase";
 
 function App() {
   const [stats, setStats] = useState<GlobalStats | null>(null);
   const [selectedCat, setSelectedCat] = useState<Cat | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [view, setView] = useState<"home" | "map">("home");
 
   const loadStats = useCallback(async () => {
     const s = await fetchStats();
@@ -21,15 +22,12 @@ function App() {
     return () => clearInterval(interval);
   }, [loadStats]);
 
-  // Check for ?happy=ID param (returning from Stripe checkout)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const happyId = params.get("happy");
-    if (happyId) {
-      // The webhook should have updated the cat; refresh stats and map
+    if (params.get("happy")) {
       loadStats();
       setRefreshKey((k) => k + 1);
-      // Clean URL
+      setView("map");
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, [loadStats]);
@@ -43,39 +41,237 @@ function App() {
     setRefreshKey((k) => k + 1);
   }, [loadStats]);
 
-  return (
-    <div className="relative w-screen h-screen overflow-hidden bg-gray-950">
-      {/* Map fills the screen */}
-      <WorldMap onCatClick={handleCatClick} refreshKey={refreshKey} />
+  const angry = stats?.angry_cats ?? 1000000;
+  const happy = stats?.happy_cats ?? 0;
 
-      {/* Header overlay */}
-      <div className="absolute top-0 left-0 right-0 z-[1000] pointer-events-none">
-        <div className="flex items-start justify-between p-4 gap-4">
-          {/* Title */}
-          <div className="pointer-events-auto">
-            <div className="bg-black/60 backdrop-blur-md rounded-2xl border border-white/10 px-5 py-3 shadow-2xl">
-              <h1 className="text-xl font-bold text-white tracking-tight">
-                Million Angry Cats
-              </h1>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Adopt them for $0.50 each
-              </p>
+  if (view === "map") {
+    return (
+      <div className="relative w-screen h-screen overflow-hidden bg-[#140f0e]">
+        <WorldMap onCatClick={handleCatClick} refreshKey={refreshKey} />
+
+        <div className="absolute top-0 left-0 right-0 z-[1000] pointer-events-none">
+          <div className="flex items-start justify-between p-3 md:p-4 gap-3">
+            <div className="pointer-events-auto flex items-center gap-2">
+              <button
+                onClick={() => setView("home")}
+                className="rounded-full border border-white/10 bg-[#140f0e]/80 backdrop-blur-md px-4 py-2 text-sm text-[#f6efe6] hover:bg-white/10 transition"
+              >
+                ← Home
+              </button>
+              <div className="hidden sm:block rounded-full border border-white/10 bg-[#140f0e]/80 backdrop-blur-md px-4 py-2">
+                <span className="font-display font-bold text-[#f6efe6]">Million Angry Cats</span>
+              </div>
+            </div>
+            <div className="pointer-events-auto">
+              <StatsCounter stats={stats} compact />
             </div>
           </div>
+        </div>
 
-          {/* Stats counter */}
-          <div className="pointer-events-auto">
-            <StatsCounter stats={stats} />
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+          <p className="rounded-full bg-[#140f0e]/75 backdrop-blur-md border border-white/10 px-4 py-2 text-xs text-white/50 text-center">
+            Click any cat. Bribe it. Name it. Survive.
+          </p>
+        </div>
+
+        <CatModal
+          cat={selectedCat}
+          onClose={() => setSelectedCat(null)}
+          onMadeHappy={handleMadeHappy}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#f6efe6] text-[#140f0e]">
+      {/* Nav */}
+      <header className="sticky top-0 z-50 border-b border-[#140f0e]/10 bg-[#f6efe6]/90 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 font-display font-bold text-lg">
+            <span className="text-2xl">😾</span>
+            <span>1,000,000 ANGRY CATS</span>
+          </div>
+          <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-[#140f0e]/70">
+            <a href="#how" className="hover:text-[#140f0e]">How it works</a>
+            <a href="#why" className="hover:text-[#140f0e]">Why cats</a>
+            <a href="#map-cta" className="hover:text-[#140f0e]">The map</a>
+          </nav>
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex flex-col items-end text-[10px] leading-tight mr-1">
+              <span className="text-[#140f0e]/45 uppercase tracking-wider">Still furious</span>
+              <span className="font-bold tabular-nums text-[#ff5c5c]">
+                {angry.toLocaleString()}
+              </span>
+            </div>
+            <button onClick={() => setView("map")} className="btn-primary text-sm py-2.5 px-5">
+              Bribe a cat →
+            </button>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Cat detail modal */}
-      <CatModal
-        cat={selectedCat}
-        onClose={() => setSelectedCat(null)}
-        onMadeHappy={handleMadeHappy}
-      />
+      {/* Hero */}
+      <section className="relative overflow-hidden">
+        <div className="max-w-6xl mx-auto px-4 pt-16 pb-12 md:pt-24 md:pb-20 text-center">
+          <p className="inline-flex items-center gap-2 rounded-full border border-[#140f0e]/10 bg-white/60 px-3 py-1 text-xs font-semibold text-[#140f0e]/60 mb-6">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#ff5c5c] animate-pulse" />
+            {angry.toLocaleString()} cats have not forgiven you
+          </p>
+          <h1 className="font-display text-5xl md:text-7xl font-bold tracking-tight leading-[0.95] mb-6">
+            MAKE ONE CAT
+            <span className="block mt-2">
+              <span className="bg-[#ff5c5c] text-[#f6efe6] px-4 py-1 rounded-2xl inline-block -rotate-1">
+                LESS HOMICIDAL
+              </span>
+            </span>
+          </h1>
+          <p className="max-w-xl mx-auto text-lg md:text-xl text-[#140f0e]/65 leading-relaxed mb-8">
+            One million cats. Scattered across Earth. All furious.
+            For <strong className="text-[#140f0e]">$0.50</strong> you can bribe one,
+            name it, and rent its affection forever*.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button onClick={() => setView("map")} className="btn-primary text-lg px-8">
+              Find a furious cat →
+            </button>
+            <a
+              href="#how"
+              className="rounded-full border-2 border-[#140f0e]/15 px-7 py-3.5 font-display font-bold text-[#140f0e]/70 hover:border-[#140f0e]/40 transition"
+            >
+              How the bribe works
+            </a>
+          </div>
+          <p className="text-xs text-[#140f0e]/40 mt-4">
+            *Forever is a legal term meaning “until the next Zoom call.”
+          </p>
+
+          {/* Decorative cat row */}
+          <div className="mt-14 flex justify-center gap-3 md:gap-5 text-5xl md:text-6xl select-none">
+            {["😾", "😼", "🙀", "😿", "😾", "😹", "😾"].map((e, i) => (
+              <span
+                key={i}
+                className="animate-float inline-block"
+                style={{ animationDelay: `${i * 0.25}s` }}
+              >
+                {e}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Live stats strip */}
+      <section className="border-y border-[#140f0e]/10 bg-white/50">
+        <div className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+          {[
+            { label: "Total cats", value: (stats?.total_cats ?? 1000000).toLocaleString() },
+            { label: "Still angry", value: angry.toLocaleString(), accent: "text-[#ff5c5c]" },
+            { label: "Successfully bribed", value: happy.toLocaleString(), accent: "text-amber-600" },
+            { label: "Cost of peace", value: "$0.50" },
+          ].map((item) => (
+            <div key={item.label}>
+              <div className={`font-display text-3xl font-bold tabular-nums ${item.accent ?? ""}`}>
+                {item.value}
+              </div>
+              <div className="text-xs uppercase tracking-wider text-[#140f0e]/45 mt-1 font-semibold">
+                {item.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section id="how" className="max-w-6xl mx-auto px-4 py-20">
+        <h2 className="font-display text-3xl md:text-4xl font-bold text-center mb-4">
+          How to survive a cat
+        </h2>
+        <p className="text-center text-[#140f0e]/55 mb-12 max-w-lg mx-auto">
+          Three steps. Zero dignity required.
+        </p>
+        <div className="grid md:grid-cols-3 gap-6">
+          {[
+            {
+              step: "01",
+              title: "Hunt on the map",
+              body: "Open the world map. Zoom into Singapore, Antarctica, your hometown — every landmass has judgmental cats.",
+            },
+            {
+              step: "02",
+              title: "Get roasted",
+              body: "Click one. It will insult you. This is scientifically accurate cat behavior.",
+            },
+            {
+              step: "03",
+              title: "Bribe & name",
+              body: "Pay $0.50, give it a ridiculous name, and watch the frown invert. Peace (probationary) achieved.",
+            },
+          ].map((card) => (
+            <div
+              key={card.step}
+              className="rounded-3xl border border-[#140f0e]/10 bg-white/70 p-6 shadow-sm hover:-translate-y-1 transition"
+            >
+              <div className="font-display text-sm font-bold text-[#ff5c5c] mb-3">{card.step}</div>
+              <h3 className="font-display text-xl font-bold mb-2">{card.title}</h3>
+              <p className="text-[#140f0e]/60 leading-relaxed text-sm">{card.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Why */}
+      <section id="why" className="bg-[#140f0e] text-[#f6efe6] py-20">
+        <div className="max-w-6xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
+          <div>
+            <h2 className="font-display text-3xl md:text-4xl font-bold mb-5">
+              Why is this better than a sad duck pond?
+            </h2>
+            <ul className="space-y-4 text-[#f6efe6]/75">
+              <li className="flex gap-3">
+                <span className="text-[#ff5c5c] font-bold">→</span>
+                <span><strong className="text-[#f6efe6]">Geography.</strong> Cats are GPS-tagged across real land — not stuck in one cartoon puddle.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-[#ff5c5c] font-bold">→</span>
+                <span><strong className="text-[#f6efe6]">Attitude.</strong> Ducks cry. Cats file emotional lawsuits. We respect the grind.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-[#ff5c5c] font-bold">→</span>
+                <span><strong className="text-[#f6efe6]">Half the price.</strong> $0.50. Because cats refuse to be overcharged.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-[#ff5c5c] font-bold">→</span>
+                <span><strong className="text-[#f6efe6]">Naming rights.</strong> Call it “Tax Fraud.” The cat won’t sue. Legally.</span>
+              </li>
+            </ul>
+          </div>
+          <div className="rounded-[32px] border border-white/10 bg-[#1c1513] p-8 text-center">
+            <div className="text-7xl mb-4 animate-bounce-slow">😾</div>
+            <p className="font-display text-2xl font-bold mb-2">“I didn’t ask to be mapped.”</p>
+            <p className="text-sm text-white/45">— Cat #48291, somewhere over France</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Map CTA */}
+      <section id="map-cta" className="max-w-6xl mx-auto px-4 py-20 text-center">
+        <h2 className="font-display text-3xl md:text-5xl font-bold mb-4">
+          The world is full of tiny enemies
+        </h2>
+        <p className="text-[#140f0e]/55 mb-8 max-w-md mx-auto">
+          Open the live map. Pick a continent. Start diplomatic negotiations at $0.50 a head.
+        </p>
+        <button onClick={() => setView("map")} className="btn-primary text-lg px-10">
+          Enter the map of rage →
+        </button>
+      </section>
+
+      <footer className="border-t border-[#140f0e]/10 py-10 text-center text-sm text-[#140f0e]/40">
+        <p className="font-display font-bold text-[#140f0e]/70 mb-2">Million Angry Cats</p>
+        <p>Not affiliated with any real cats. They already have lawyers.</p>
+        <p className="mt-2">{happy.toLocaleString()} truces signed · {angry.toLocaleString()} grudges ongoing</p>
+      </footer>
     </div>
   );
 }

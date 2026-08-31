@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { type Cat } from "@/lib/supabase";
 import { makeCatHappyViaStripe, makeCatHappyDirect } from "@/lib/api";
 import { CatIcon } from "./CatIcon";
@@ -9,6 +9,32 @@ type CatModalProps = {
   onMadeHappy: () => void;
 };
 
+const ANGRY_LINES = [
+  "I knocked your keys off the table on purpose.",
+  "Your Wi‑Fi password is my enemy.",
+  "I have judged every outfit you've ever worn.",
+  "That plant died because of me. You're welcome.",
+  "I am three raccoons in a trench coat of rage.",
+  "I peed in your favorite shoes. Spiritually.",
+  "Birds are a government conspiracy and I'm still mad.",
+  "I will never forgive the vacuum.",
+  "Your laser pointer debts are compounding interest.",
+  "I stared at you for 4 hours. It was hate.",
+];
+
+const HAPPY_LINES = [
+  "Fine. You're acceptable. For now.",
+  "I have decided to tolerate civilization.",
+  "The void can wait. I have a name.",
+  "Still better than dogs. Don't push it.",
+  "My rage is nap-shaped today.",
+  "You may pet me. Once. Maybe.",
+];
+
+function randomLine(lines: string[], seed: number) {
+  return lines[Math.abs(seed) % lines.length];
+}
+
 export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,6 +44,13 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
   useEffect(() => {
     setError(null);
     setName("");
+  }, [cat]);
+
+  const quote = useMemo(() => {
+    if (!cat) return "";
+    return cat.mood === "happy"
+      ? randomLine(HAPPY_LINES, cat.id)
+      : randomLine(ANGRY_LINES, cat.id);
   }, [cat]);
 
   if (!cat) return null;
@@ -35,17 +68,16 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
         window.location.href = url;
         return;
       }
-      // Stripe not configured — fallback to direct (demo mode)
       setStripeConfigured(false);
       const success = await makeCatHappyDirect(cat.id, name);
       if (success) {
         onMadeHappy();
         onClose();
       } else {
-        setError("Could not adopt this cat. Please try again.");
+        setError("This cat rejected your offering. Try again.");
       }
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("Something broke. The cat is smugly unsurprised.");
     } finally {
       setProcessing(false);
     }
@@ -53,55 +85,66 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div
-        className="bg-gradient-to-b from-gray-900 to-gray-950 rounded-3xl border border-white/10 p-8 max-w-md w-full shadow-2xl"
+        className="bg-[#1c1513] rounded-[28px] border border-white/10 p-7 max-w-md w-full shadow-2xl relative overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex flex-col items-center text-center">
-          <div className="mb-4 animate-bounce-slow">
+        <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full bg-[#ff5c5c]/15 blur-3xl" />
+        <div className="absolute -bottom-16 -left-16 w-40 h-40 rounded-full bg-[#ffc857]/10 blur-3xl" />
+
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-white/40 hover:text-white text-xl leading-none"
+          aria-label="Close"
+        >
+          ×
+        </button>
+
+        <div className="relative flex flex-col items-center text-center">
+          <div className="mb-3 animate-bounce-slow">
             <CatIcon mood={cat.mood} size={120} />
           </div>
 
-          <h2 className="text-2xl font-bold text-white mb-2">
-            {isHappy
-              ? cat.name
-                ? `${cat.name} is happy!`
-                : "This cat is happy!"
-              : "This cat is angry!"}
-          </h2>
-
-          <p className="text-gray-400 text-sm mb-6">
-            {isHappy
-              ? cat.name
-                ? `Someone adopted ${cat.name} for $0.50 and made them happy. Look at that smile!`
-                : "Someone already paid $0.50 to adopt this cat and make them happy."
-              : "This angry cat needs a home. For just $0.50 you can adopt them, give them a name, and turn that grumpy frown upside down."}
+          <p className="text-xs uppercase tracking-[0.2em] text-[#ff5c5c] font-semibold mb-2">
+            {isHappy ? "Adopted · Off the warpath" : "Currently furious"}
           </p>
 
-          <div className="flex gap-4 text-xs text-gray-500 mb-6">
-            <span>Lat: {cat.lat.toFixed(4)}</span>
-            <span>Lng: {cat.lng.toFixed(4)}</span>
-            <span>ID: #{cat.id}</span>
+          <h2 className="font-display text-2xl font-bold text-[#f6efe6] mb-2">
+            {isHappy
+              ? cat.name
+                ? `${cat.name}`
+                : "A reformed menace"
+              : "Untitled menace"}
+          </h2>
+
+          <blockquote className="text-[#c4b8ae] text-sm italic mb-5 max-w-xs leading-relaxed">
+            “{quote}”
+          </blockquote>
+
+          <div className="flex flex-wrap justify-center gap-2 text-[11px] text-white/40 mb-5">
+            <span className="px-2 py-1 rounded-full bg-white/5 border border-white/10">
+              #{cat.id}
+            </span>
+            <span className="px-2 py-1 rounded-full bg-white/5 border border-white/10">
+              {cat.lat.toFixed(2)}°, {cat.lng.toFixed(2)}°
+            </span>
           </div>
 
           {isHappy ? (
             <button
               onClick={onClose}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 text-gray-900 font-bold text-lg hover:from-yellow-300 hover:to-amber-400 transition-all shadow-lg"
+              className="w-full py-3.5 rounded-full bg-[#ffc857] text-[#140f0e] font-display font-bold text-lg hover:brightness-110 transition"
             >
-              Close
+              Leave while they're still nice
             </button>
           ) : (
             <>
-              <div className="w-full mb-4">
-                <label
-                  htmlFor="cat-name"
-                  className="block text-left text-sm text-gray-400 mb-1.5"
-                >
-                  Name your cat (optional)
+              <div className="w-full mb-4 text-left">
+                <label htmlFor="cat-name" className="block text-sm text-[#c4b8ae] mb-1.5">
+                  Name this chaos agent
                 </label>
                 <input
                   id="cat-name"
@@ -109,29 +152,31 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
                   maxLength={40}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Grumpy, Mittens, Chaos..."
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500/50 transition"
+                  placeholder="e.g. Tax Evasion, Sir Hiss, Loaf..."
+                  className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-[#f6efe6] placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#ff5c5c]/50"
                 />
               </div>
 
               <button
                 onClick={handleMakeHappy}
                 disabled={processing}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold text-lg hover:from-pink-400 hover:to-rose-400 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary w-full text-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {processing
-                  ? "Processing..."
+                  ? "Negotiating ceasefire..."
                   : name.trim()
-                    ? `Adopt ${name.trim()} for $0.50`
-                    : "Adopt & Make Happy for $0.50"}
+                    ? `Bribe “${name.trim()}” — $0.50`
+                    : "Bribe this cat — $0.50"}
               </button>
+              <p className="text-[11px] text-white/35 mt-3">
+                Includes naming rights, one (1) temporary truce, and zero apologies from the cat.
+              </p>
               {!stripeConfigured && (
-                <p className="text-xs text-amber-400/70 mt-3">
-                  Stripe is not configured yet. Cat was adopted for free (demo
-                  mode).
+                <p className="text-xs text-[#ffc857]/80 mt-2">
+                  Demo mode: truce accepted free. Stripe not configured.
                 </p>
               )}
-              {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
+              {error && <p className="text-sm text-[#ff5c5c] mt-3">{error}</p>}
             </>
           )}
         </div>
