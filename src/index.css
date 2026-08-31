@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Leaflet map dark theme adjustments */
+.leaflet-container {
+  background: #0a0a0a;
+  font-family: inherit;
+}
+
+.leaflet-control-zoom a {
+  background: rgba(0, 0, 0, 0.7) !important;
+  color: white !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: rgba(0, 0, 0, 0.9) !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(0, 0, 0, 0.6) !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.leaflet-control-attribution a {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Cat marker styling */
+.cat-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.cat-marker-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.cat-marker-inner:hover {
+  transform: scale(1.4);
+  z-index: 1000;
+}
+
+/* Slow bounce animation for modal cat */
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 2s ease-in-out infinite;
+}
+
+/* Fade in animation */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}

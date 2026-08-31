@@ -1,0 +1,4 @@
+project_id = "spkxnvfsubzekjthxpij"
+
+[functions.make-cat-happy]
+verify_jwt = false
