@@ -220,29 +220,29 @@ function App() {
         </div>
       </section>
 
-      {/* Why */}
+      {/* Features */}
       <section id="why" className="bg-[#140f0e] text-[#f6efe6] py-20">
         <div className="max-w-6xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
           <div>
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-5">
-              Why is this better than a sad duck pond?
+              What you actually get for fifty cents
             </h2>
             <ul className="space-y-4 text-[#f6efe6]/75">
               <li className="flex gap-3">
                 <span className="text-[#ff5c5c] font-bold">→</span>
-                <span><strong className="text-[#f6efe6]">Geography.</strong> Cats are GPS-tagged across real land — not stuck in one cartoon puddle.</span>
+                <span><strong className="text-[#f6efe6]">A real location.</strong> Every cat sits on actual land — zoom from Singapore to Siberia and find a new grudge.</span>
               </li>
               <li className="flex gap-3">
                 <span className="text-[#ff5c5c] font-bold">→</span>
-                <span><strong className="text-[#f6efe6]">Attitude.</strong> Ducks cry. Cats file emotional lawsuits. We respect the grind.</span>
+                <span><strong className="text-[#f6efe6]">Naming rights.</strong> Call it “Tax Fraud” or “Loaf Supreme.” The cat will pretend not to care.</span>
               </li>
               <li className="flex gap-3">
                 <span className="text-[#ff5c5c] font-bold">→</span>
-                <span><strong className="text-[#f6efe6]">Half the price.</strong> $0.50. Because cats refuse to be overcharged.</span>
+                <span><strong className="text-[#f6efe6]">A public truce.</strong> Their mood flips from furious to smug. The whole map can witness your diplomacy.</span>
               </li>
               <li className="flex gap-3">
                 <span className="text-[#ff5c5c] font-bold">→</span>
-                <span><strong className="text-[#f6efe6]">Naming rights.</strong> Call it “Tax Fraud.” The cat won’t sue. Legally.</span>
+                <span><strong className="text-[#f6efe6]">Bragging rights.</strong> You paid half a dollar to calm chaos. That’s either charity or a cry for help.</span>
               </li>
             </ul>
           </div>
