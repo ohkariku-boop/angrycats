@@ -70,7 +70,8 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
       } else {
         setError("This cat rejected your offering. Try again.");
       }
-    } catch {
+    } catch (err) {
+      console.error(err);
       setError("Something broke. The cat is smugly unsurprised.");
     } finally {
       setProcessing(false);

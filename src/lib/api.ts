@@ -139,22 +139,49 @@ export async function makeCatHappyDirect(
   catId: number,
   name?: string
 ): Promise<boolean> {
-  // Demo / no-Stripe path: update directly via Supabase (RLS allows it)
-  const { data, error } = await supabase
-    .from("cats")
-    .update({
-      mood: "happy",
-      made_happy_at: new Date().toISOString(),
-      name: name?.trim() || null,
-    })
-    .eq("id", catId)
-    .eq("mood", "angry")
-    .select("id")
-    .maybeSingle();
+  // Prefer RPC (SECURITY DEFINER) — most reliable for demo bribes
+  try {
+    const { data, error } = await supabase.rpc("make_cat_happy", {
+      p_cat_id: catId,
+      p_name: name?.trim() || null,
+    });
 
-  if (error || !data) {
-    console.error("Direct make-happy failed:", error);
+    if (!error && data && (data as { success?: boolean }).success === true) {
+      return true;
+    }
+    if (error) console.error("make_cat_happy RPC error:", error);
+  } catch (e) {
+    console.error("make_cat_happy RPC threw:", e);
+  }
+
+  // Fallback: direct table update
+  try {
+    const { data, error } = await supabase
+      .from("cats")
+      .update({
+        mood: "happy",
+        made_happy_at: new Date().toISOString(),
+        name: name?.trim() || null,
+      })
+      .eq("id", catId)
+      .eq("mood", "angry")
+      .select("id");
+
+    if (error) {
+      console.error("Direct make-happy failed:", error);
+      return false;
+    }
+    if (data && data.length > 0) return true;
+
+    // Already happy counts as success for UX
+    const { data: existing } = await supabase
+      .from("cats")
+      .select("id, mood")
+      .eq("id", catId)
+      .maybeSingle();
+    return existing?.mood === "happy";
+  } catch (e) {
+    console.error("Direct make-happy threw:", e);
     return false;
   }
-  return true;
 }
