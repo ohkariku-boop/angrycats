@@ -102,6 +102,29 @@ export async function fetchCatsInBounds(
   return cats;
 }
 
+
+export async function fetchLatestHappyCats(limit = 12): Promise<Cat[]> {
+  const { data, error } = await supabase.rpc("get_latest_happy_cats", {
+    cat_limit: limit,
+  });
+  if (error) {
+    console.error("Failed to fetch latest happy cats:", error);
+    // Fallback query
+    const { data: rows, error: e2 } = await supabase
+      .from("cats")
+      .select("id, lat, lng, mood, name, made_happy_at")
+      .eq("mood", "happy")
+      .order("made_happy_at", { ascending: false })
+      .limit(limit);
+    if (e2) {
+      console.error(e2);
+      return [];
+    }
+    return (rows ?? []) as Cat[];
+  }
+  return (data ?? []) as Cat[];
+}
+
 export async function fetchCatById(id: number): Promise<Cat | null> {
   const { data, error } = await supabase
     .from("cats")

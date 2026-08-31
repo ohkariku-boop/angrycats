@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { WorldMap } from "@/components/WorldMap";
 import { StatsCounter } from "@/components/StatsCounter";
 import { CatModal } from "@/components/CatModal";
-import { fetchStats } from "@/lib/api";
+import { fetchStats, fetchLatestHappyCats } from "@/lib/api";
 import type { Cat, GlobalStats } from "@/lib/supabase";
 
 function App() {
@@ -10,10 +10,13 @@ function App() {
   const [selectedCat, setSelectedCat] = useState<Cat | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [view, setView] = useState<"home" | "map">("home");
+  const [latestHappy, setLatestHappy] = useState<Cat[]>([]);
 
   const loadStats = useCallback(async () => {
     const s = await fetchStats();
     if (s) setStats(s);
+    const happy = await fetchLatestHappyCats(12);
+    setLatestHappy(happy);
   }, []);
 
   useEffect(() => {
@@ -267,11 +270,75 @@ function App() {
         </button>
       </section>
 
+
+      {/* Latest happy cats */}
+      <section className="border-t border-[#140f0e]/10 bg-white/40 py-16">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-8">
+            <div>
+              <h2 className="font-display text-3xl md:text-4xl font-bold">
+                Latest truces
+              </h2>
+              <p className="text-[#140f0e]/55 mt-1">
+                Cats that recently accepted a bribe. Yellow on the map means they&apos;re still (smugly) happy.
+              </p>
+            </div>
+            <button
+              onClick={() => setView("map")}
+              className="text-sm font-semibold text-[#ff5c5c] hover:underline self-start"
+            >
+              Find them on the map →
+            </button>
+          </div>
+
+          {latestHappy.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-[#140f0e]/15 bg-white/60 p-10 text-center text-[#140f0e]/50">
+              No happy cats yet. Be the first to bribe one.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {latestHappy.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setSelectedCat(cat)}
+                  className="rounded-2xl border border-[#140f0e]/10 bg-white/80 p-4 text-left hover:-translate-y-0.5 hover:shadow-md transition"
+                >
+                  <div className="text-3xl mb-2">😻</div>
+                  <div className="font-display font-bold text-sm truncate">
+                    {cat.name?.trim() || `Cat #${cat.id}`}
+                  </div>
+                  <div className="text-[11px] text-[#140f0e]/45 mt-1">
+                    {cat.lat.toFixed(1)}°, {cat.lng.toFixed(1)}°
+                  </div>
+                  {cat.made_happy_at && (
+                    <div className="text-[10px] text-amber-700/70 mt-1">
+                      {new Date(cat.made_happy_at).toLocaleString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       <footer className="border-t border-[#140f0e]/10 py-10 text-center text-sm text-[#140f0e]/40">
         <p className="font-display font-bold text-[#140f0e]/70 mb-2">Million Angry Cats</p>
         <p>Not affiliated with any real cats. They already have lawyers.</p>
         <p className="mt-2">{happy.toLocaleString()} truces signed · {angry.toLocaleString()} grudges ongoing</p>
       </footer>
+
+      <CatModal
+        cat={selectedCat}
+        onClose={() => setSelectedCat(null)}
+        onMadeHappy={handleMadeHappy}
+      />
     </div>
   );
 }
