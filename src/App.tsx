@@ -3,6 +3,7 @@ import { WorldMap } from "@/components/WorldMap";
 import { StatsCounter } from "@/components/StatsCounter";
 import { CatModal } from "@/components/CatModal";
 import { fetchStats, fetchLatestHappyCats } from "@/lib/api";
+import { loadReceipts, receiptShareText, type CatReceipt } from "@/lib/receipts";
 import type { Cat, GlobalStats } from "@/lib/supabase";
 
 function App() {
@@ -11,6 +12,7 @@ function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [view, setView] = useState<"home" | "map">("home");
   const [latestHappy, setLatestHappy] = useState<Cat[]>([]);
+  const [myReceipts, setMyReceipts] = useState<CatReceipt[]>([]);
 
   const loadStats = useCallback(async () => {
     const s = await fetchStats();
@@ -21,6 +23,7 @@ function App() {
 
   useEffect(() => {
     loadStats();
+    setMyReceipts(loadReceipts());
     const interval = setInterval(loadStats, 5000);
     return () => clearInterval(interval);
   }, [loadStats]);
@@ -41,6 +44,7 @@ function App() {
 
   const handleMadeHappy = useCallback(() => {
     loadStats();
+    setMyReceipts(loadReceipts());
     setRefreshKey((k) => k + 1);
   }, [loadStats]);
 
@@ -98,6 +102,7 @@ function App() {
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-[#140f0e]/70">
             <a href="#how" className="hover:text-[#140f0e]">How it works</a>
             <a href="#why" className="hover:text-[#140f0e]">Why cats</a>
+            <a href="#receipts" className="hover:text-[#140f0e]">My receipts</a>
             <a href="#map-cta" className="hover:text-[#140f0e]">The map</a>
           </nav>
           <div className="flex items-center gap-2">
@@ -270,6 +275,77 @@ function App() {
         </button>
       </section>
 
+
+
+      {/* My receipts — bragging rights */}
+      <section id="receipts" className="max-w-6xl mx-auto px-4 py-16">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-8">
+          <div>
+            <h2 className="font-display text-3xl md:text-4xl font-bold">
+              Your truce receipts
+            </h2>
+            <p className="text-[#140f0e]/55 mt-1">
+              Cats you&apos;ve bribed on this device. Flash these as bragging rights.
+            </p>
+          </div>
+          {myReceipts.length > 0 && (
+            <span className="text-sm font-semibold text-[#ff5c5c]">
+              {myReceipts.length} sealed
+            </span>
+          )}
+        </div>
+
+        {myReceipts.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-[#140f0e]/15 bg-white/60 p-10 text-center text-[#140f0e]/50">
+            No receipts yet. Bribe a cat on the map and your proof shows up here.
+            <div className="mt-4">
+              <button onClick={() => setView("map")} className="btn-primary text-sm py-2.5 px-5">
+                Bribe a cat →
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {myReceipts.map((r) => (
+              <div
+                key={`${r.id}-${r.bribed_at}`}
+                className="rounded-3xl border border-[#140f0e]/10 bg-white/80 p-5 shadow-sm relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 text-6xl opacity-10 -mr-2 -mt-2">😻</div>
+                <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-amber-700/80 mb-2">
+                  Truce receipt
+                </p>
+                <h3 className="font-display text-xl font-bold truncate">
+                  {r.name?.trim() || `Cat #${r.id}`}
+                </h3>
+                <p className="text-xs text-[#140f0e]/45 mt-0.5">Serial #{r.id}</p>
+                <div className="mt-3 space-y-1 text-sm text-[#140f0e]/65">
+                  <div>{r.lat.toFixed(3)}°, {r.lng.toFixed(3)}°</div>
+                  <div>
+                    {new Date(r.bribed_at).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(receiptShareText(r));
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                  className="mt-4 w-full rounded-full border border-[#140f0e]/15 py-2 text-sm font-semibold hover:bg-[#140f0e]/5 transition"
+                >
+                  Copy brag text
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* Latest happy cats */}
       <section className="border-t border-[#140f0e]/10 bg-white/40 py-16">

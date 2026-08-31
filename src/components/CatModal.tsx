@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { type Cat } from "@/lib/supabase";
 import { makeCatHappyDirect } from "@/lib/api";
+import { saveReceipt, type CatReceipt } from "@/lib/receipts";
 import { CatIcon } from "./CatIcon";
 
 type CatModalProps = {
@@ -39,10 +40,12 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [lastReceipt, setLastReceipt] = useState<CatReceipt | null>(null);
 
   useEffect(() => {
     setError(null);
     setName("");
+    setLastReceipt(null);
   }, [cat]);
 
   const quote = useMemo(() => {
@@ -65,8 +68,9 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
       // Demo mode: direct update, no Stripe
       const success = await makeCatHappyDirect(cat.id, name);
       if (success) {
+        const receipt = saveReceipt(cat, name);
+        setLastReceipt(receipt);
         onMadeHappy();
-        onClose();
       } else {
         setError("This cat rejected your offering. Try again.");
       }
@@ -128,7 +132,54 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
             </span>
           </div>
 
-          {isHappy ? (
+          {lastReceipt ? (
+            <div className="w-full text-left space-y-3">
+              <div className="rounded-2xl border border-[#ffc857]/30 bg-[#ffc857]/10 p-4">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[#ffc857] font-bold mb-2">
+                  Official truce receipt
+                </p>
+                <p className="font-display text-xl font-bold text-[#f6efe6]">
+                  {lastReceipt.name?.trim() || `Cat #${lastReceipt.id}`}
+                </p>
+                <p className="text-xs text-white/45 mt-1">Serial #{lastReceipt.id}</p>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-white/60">
+                  <div>
+                    <div className="text-white/30 uppercase text-[10px]">Coordinates</div>
+                    {lastReceipt.lat.toFixed(3)}°, {lastReceipt.lng.toFixed(3)}°
+                  </div>
+                  <div>
+                    <div className="text-white/30 uppercase text-[10px]">Bribed</div>
+                    {new Date(lastReceipt.bribed_at).toLocaleString()}
+                  </div>
+                </div>
+                <p className="text-[11px] text-white/40 mt-3 italic">
+                  Valid for bragging rights. Cat may still ignore you in person.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  const text = `I bribed an angry cat.\n${lastReceipt.name?.trim() || "Cat #" + lastReceipt.id} · #${lastReceipt.id}\n${lastReceipt.lat.toFixed(2)}°, ${lastReceipt.lng.toFixed(2)}°\nTruce sealed on Million Angry Cats.`;
+                  try {
+                    await navigator.clipboard.writeText(text);
+                  } catch {
+                    /* ignore */
+                  }
+                  onClose();
+                }}
+                className="w-full py-3.5 rounded-full bg-[#ffc857] text-[#140f0e] font-display font-bold text-lg hover:brightness-110 transition"
+              >
+                Copy brag & close
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-2 text-sm text-white/40 hover:text-white/70"
+              >
+                Close
+              </button>
+            </div>
+          ) : isHappy ? (
             <button
               onClick={onClose}
               className="w-full py-3.5 rounded-full bg-[#ffc857] text-[#140f0e] font-display font-bold text-lg hover:brightness-110 transition"
