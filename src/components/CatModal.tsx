@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { type Cat } from "@/lib/supabase";
-import { makeCatHappyViaStripe, makeCatHappyDirect } from "@/lib/api";
+import { makeCatHappyDirect } from "@/lib/api";
 import { CatIcon } from "./CatIcon";
 
 type CatModalProps = {
@@ -38,7 +38,6 @@ function randomLine(lines: string[], seed: number) {
 export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stripeConfigured, setStripeConfigured] = useState(true);
   const [name, setName] = useState("");
 
   useEffect(() => {
@@ -63,12 +62,7 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
     setError(null);
 
     try {
-      const url = await makeCatHappyViaStripe(cat.id);
-      if (url) {
-        window.location.href = url;
-        return;
-      }
-      setStripeConfigured(false);
+      // Demo mode: direct update, no Stripe
       const success = await makeCatHappyDirect(cat.id, name);
       if (success) {
         onMadeHappy();
@@ -171,11 +165,9 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
               <p className="text-[11px] text-white/35 mt-3">
                 Includes naming rights, one (1) temporary truce, and zero apologies from the cat.
               </p>
-              {!stripeConfigured && (
-                <p className="text-xs text-[#ffc857]/80 mt-2">
-                  Demo mode: truce accepted free. Stripe not configured.
-                </p>
-              )}
+              <p className="text-xs text-[#ffc857]/80 mt-2">
+                Demo mode — no payment charged. Stripe can be wired up later.
+              </p>
               {error && <p className="text-sm text-[#ff5c5c] mt-3">{error}</p>}
             </>
           )}

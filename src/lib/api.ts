@@ -139,28 +139,7 @@ export async function makeCatHappyDirect(
   catId: number,
   name?: string
 ): Promise<boolean> {
-  try {
-    const res = await fetch(FUNCTION_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        catId,
-        action: "make-happy",
-        name: name?.trim() || null,
-      }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success === true) return true;
-    }
-  } catch {
-    // fall through
-  }
-
+  // Demo / no-Stripe path: update directly via Supabase (RLS allows it)
   const { data, error } = await supabase
     .from("cats")
     .update({
