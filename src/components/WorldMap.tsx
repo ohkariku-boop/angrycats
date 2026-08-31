@@ -79,12 +79,15 @@ export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
       preferCanvas: true,
     });
 
-    // Use a dark-themed tile layer for contrast with cat markers
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/">OSM</a>',
-      maxZoom: 20,
-      maxNativeZoom: 19,
-    }).addTo(map);
+    // Free dark basemap (no API key required)
+    L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+      {
+        attribution:
+          "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
+        maxZoom: 16,
+      }
+    ).addTo(map);
 
     mapRef.current = map;
 
@@ -108,7 +111,7 @@ export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
     setLoading(true);
 
     // Scale limits with zoom: more cats visible as you zoom in
-    const limit = zoom < 3 ? 800 : zoom < 5 ? 1500 : zoom < 8 ? 3000 : zoom < 12 ? 5000 : 8000;
+    const limit = zoom < 3 ? 2000 : zoom < 5 ? 3500 : zoom < 8 ? 5000 : zoom < 12 ? 7000 : 10000;
 
     const cats = await fetchCatsInBounds(south, west, north, east, limit);
 
