@@ -14,6 +14,11 @@ function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [view, setView] = useState<"home" | "map" | "thanks">("home");
   const [thanksReceipt, setThanksReceipt] = useState<CatReceipt | null>(null);
+  const [mapMounted, setMapMounted] = useState(false);
+
+  useEffect(() => {
+    if (view === "map") setMapMounted(true);
+  }, [view]);
   const [latestHappy, setLatestHappy] = useState<Cat[]>([]);
   const [myReceipts, setMyReceipts] = useState<CatReceipt[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -118,10 +123,18 @@ function App() {
     );
   }
 
-  if (view === "map") {
-    return (
-      <div className="relative w-screen h-screen overflow-hidden bg-[#140f0e]">
-        <WorldMap onCatClick={handleCatClick} refreshKey={refreshKey} />
+  const mapShell = (mapMounted || view === "map") && (
+      <div
+        className={`fixed inset-0 z-[80] bg-[#140f0e] transition-opacity duration-300 ${
+          view === "map" ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+        aria-hidden={view !== "map"}
+      >
+        <WorldMap
+          onCatClick={handleCatClick}
+          refreshKey={refreshKey}
+          active={view === "map"}
+        />
 
         <div className="absolute top-0 left-0 right-0 z-[1000] pointer-events-none">
           <div className="flex items-start justify-between p-3 md:p-4 gap-3">
@@ -147,13 +160,19 @@ function App() {
             Click any cat. Bribe it. Name it. Survive.
           </p>
         </div>
+      </div>
+    );
 
+  if (view === "map") {
+    return (
+      <>
+        {mapShell}
         <CatModal
           cat={selectedCat}
           onClose={() => setSelectedCat(null)}
           onMadeHappy={handleMadeHappy}
         />
-      </div>
+      </>
     );
   }
 
@@ -500,6 +519,7 @@ function App() {
         onClose={() => setSelectedCat(null)}
         onMadeHappy={handleMadeHappy}
       />
+      {mapShell}
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useCallback, type FormEvent } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import type { FormEvent } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { type Cat } from "@/lib/supabase";
@@ -7,9 +8,10 @@ import { fetchCatsInBounds } from "@/lib/api";
 type WorldMapProps = {
   onCatClick: (cat: Cat) => void;
   refreshKey: number;
+  /** When false, map is hidden — we skip heavy work and fix size on show */
+  active?: boolean;
 };
 
-// Cache DivIcons by "mood-size" so we don't rebuild SVG on every marker
 const iconCache = new Map<string, L.DivIcon>();
 
 function getCatDivIcon(mood: "angry" | "happy", zoom: number): L.DivIcon {
@@ -62,22 +64,26 @@ function happySvg(size: number): string {
 }
 
 function limitForZoom(zoom: number): number {
-  // Fewer markers at low zoom = smoother pan/zoom
-  if (zoom < 3) return 1200;
-  if (zoom < 5) return 2000;
-  if (zoom < 8) return 3500;
-  if (zoom < 11) return 5000;
-  return 7000;
+  // Keep first paint light at world view
+  if (zoom < 3) return 800;
+  if (zoom < 5) return 1500;
+  if (zoom < 8) return 2800;
+  if (zoom < 11) return 4500;
+  return 6000;
 }
 
-/** Use lightweight canvas circles below this zoom; detailed cat icons above */
 const DETAIL_ZOOM = 6;
 
-export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
+export function WorldMap({
+  onCatClick,
+  refreshKey,
+  active = true,
+}: WorldMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
   const [visibleCount, setVisibleCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -93,6 +99,7 @@ export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
   } | null>(null);
   const onCatClickRef = useRef(onCatClick);
   onCatClickRef.current = onCatClick;
+  const initialLoadDone = useRef(false);
 
   // Initialize map once
   useEffect(() => {
@@ -110,10 +117,12 @@ export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
       maxBounds: worldBounds,
       maxBoundsViscosity: 1.0,
       preferCanvas: true,
-      // Smoother zoom animation
       zoomAnimation: true,
-      markerZoomAnimation: false, // skip marker CSS zoom anim — big win with many markers
+      markerZoomAnimation: false,
       fadeAnimation: true,
+      // Snappier feel entering atlas
+      zoomSnap: 0.5,
+      wheelPxPerZoomLevel: 80,
     });
 
     L.tileLayer(
@@ -123,22 +132,41 @@ export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
         maxZoom: 16,
         noWrap: true,
         bounds: worldBounds,
-        keepBuffer: 2,
-        updateWhenZooming: false, // wait until zoom ends to fetch tiles
+        keepBuffer: 1,
+        updateWhenZooming: false,
         updateWhenIdle: true,
+        // Faster perceived tile load
+        className: "map-tiles",
       }
     ).addTo(map);
 
     const layer = L.layerGroup().addTo(map);
     layerRef.current = layer;
     mapRef.current = map;
+    setMapReady(true);
 
     return () => {
       map.remove();
       mapRef.current = null;
       layerRef.current = null;
+      setMapReady(false);
     };
   }, []);
+
+  // Fix grey/blank map when container was hidden
+  useEffect(() => {
+    if (!active || !mapRef.current) return;
+    const map = mapRef.current;
+    const t = window.setTimeout(() => {
+      map.invalidateSize({ animate: false });
+      if (!initialLoadDone.current) {
+        // force first cat load after size is correct
+        loadCats(true);
+      }
+    }, 50);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
 
   const loadCats = useCallback(async (force = false) => {
     const map = mapRef.current;
@@ -153,7 +181,6 @@ export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
     const east = bounds.getEast();
     const zoomBucket = Math.floor(zoom);
 
-    // Skip fetch if view barely changed (same zoom bucket + ~80% overlap)
     const prev = lastFetchRef.current;
     if (!force && prev && prev.zoomBucket === zoomBucket) {
       const latSpan = Math.max(north - south, 0.001);
@@ -170,181 +197,212 @@ export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
     setLoading(true);
 
     const limit = limitForZoom(zoom);
-    const cats = await fetchCatsInBounds(south, west, north, east, limit);
+    let cats: Cat[] = [];
+    try {
+      cats = await fetchCatsInBounds(south, west, north, east, limit);
+    } catch {
+      cats = [];
+    }
 
-    // Ignore stale responses (user zoomed again while loading)
     if (reqId !== requestIdRef.current) return;
 
     lastFetchRef.current = { zoomBucket, south, west, north, east };
-
-    // Clear previous markers in one shot
     layer.clearLayers();
 
     const useDetail = zoom >= DETAIL_ZOOM;
     const angryColor = "#FF6B6B";
     const happyColor = "#FFD56B";
+    const radius = zoom < 3 ? 2 : zoom < 5 ? 3 : 4;
 
-    // Build markers — canvas circles when zoomed out, cat icons when zoomed in
-    if (useDetail) {
-      for (const cat of cats) {
-        const marker = L.marker([cat.lat, cat.lng], {
-          icon: getCatDivIcon(cat.mood, zoom),
-          interactive: true,
-        });
-        marker.on("click", () => onCatClickRef.current(cat));
-        layer.addLayer(marker);
+    // Add markers in chunks so the main thread stays responsive
+    const chunk = 150;
+    let i = 0;
+
+    const addChunk = () => {
+      if (reqId !== requestIdRef.current) return;
+      const end = Math.min(i + chunk, cats.length);
+      for (; i < end; i++) {
+        const cat = cats[i];
+        if (useDetail) {
+          const marker = L.marker([cat.lat, cat.lng], {
+            icon: getCatDivIcon(cat.mood, zoom),
+            interactive: true,
+            keyboard: false,
+          });
+          marker.on("click", () => onCatClickRef.current(cat));
+          layer.addLayer(marker);
+        } else {
+          const marker = L.circleMarker([cat.lat, cat.lng], {
+            radius,
+            color: cat.mood === "happy" ? happyColor : angryColor,
+            fillColor: cat.mood === "happy" ? happyColor : angryColor,
+            fillOpacity: 0.85,
+            weight: 0,
+            interactive: true,
+          });
+          marker.on("click", () => onCatClickRef.current(cat));
+          layer.addLayer(marker);
+        }
       }
+      if (i < cats.length) {
+        requestAnimationFrame(addChunk);
+      } else {
+        setVisibleCount(cats.length);
+        setLoading(false);
+        initialLoadDone.current = true;
+      }
+    };
+
+    if (cats.length === 0) {
+      setVisibleCount(0);
+      setLoading(false);
+      initialLoadDone.current = true;
     } else {
-      const radius = zoom < 3 ? 2 : zoom < 5 ? 3 : 4;
-      for (const cat of cats) {
-        const marker = L.circleMarker([cat.lat, cat.lng], {
-          radius,
-          color: cat.mood === "happy" ? happyColor : angryColor,
-          fillColor: cat.mood === "happy" ? happyColor : angryColor,
-          fillOpacity: 0.85,
-          weight: 0,
-          interactive: true,
-        });
-        marker.on("click", () => onCatClickRef.current(cat));
-        layer.addLayer(marker);
-      }
+      requestAnimationFrame(addChunk);
     }
-
-    setVisibleCount(cats.length);
-    setLoading(false);
   }, []);
 
-  // Debounced reload on move/zoom end
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !mapReady) return;
 
     const schedule = () => {
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
-      // Slightly longer debounce while zooming feels smoother
-      fetchTimeoutRef.current = setTimeout(() => loadCats(false), 200);
+      fetchTimeoutRef.current = setTimeout(() => loadCats(false), 180);
     };
 
     map.on("moveend", schedule);
     map.on("zoomend", schedule);
 
-    // Initial load once map is ready
-    loadCats(true);
+    if (active) {
+      loadCats(true);
+    }
 
     return () => {
       map.off("moveend", schedule);
       map.off("zoomend", schedule);
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
     };
-  }, [loadCats]);
+  }, [loadCats, mapReady, active]);
 
   useEffect(() => {
-    if (refreshKey > 0) loadCats(true);
-  }, [refreshKey, loadCats]);
+    if (refreshKey > 0 && active) loadCats(true);
+  }, [refreshKey, loadCats, active]);
 
-  const searchLocation = useCallback(async (e?: FormEvent) => {
-    e?.preventDefault();
-    const q = searchQuery.trim();
-    if (!q || !mapRef.current) return;
+  const searchLocation = useCallback(
+    async (e?: FormEvent) => {
+      e?.preventDefault();
+      const q = searchQuery.trim();
+      if (!q || !mapRef.current) return;
 
-    setSearching(true);
-    setSearchError(null);
+      setSearching(true);
+      setSearchError(null);
 
-    try {
-      // OpenStreetMap Nominatim — free, no API key (fair-use)
-      const url =
-        "https://nominatim.openstreetmap.org/search?" +
-        new URLSearchParams({
-          q,
-          format: "json",
-          limit: "1",
-          addressdetails: "0",
-        }).toString();
+      try {
+        const url =
+          "https://nominatim.openstreetmap.org/search?" +
+          new URLSearchParams({
+            q,
+            format: "json",
+            limit: "1",
+          }).toString();
 
-      const res = await fetch(url, {
-        headers: { Accept: "application/json" },
-      });
+        const res = await fetch(url, {
+          headers: { Accept: "application/json" },
+        });
+        if (!res.ok) throw new Error("Search failed");
 
-      if (!res.ok) throw new Error("Search failed");
+        const results = (await res.json()) as Array<{
+          lat: string;
+          lon: string;
+          boundingbox?: [string, string, string, string];
+        }>;
 
-      const results = (await res.json()) as Array<{
-        lat: string;
-        lon: string;
-        display_name: string;
-        boundingbox?: [string, string, string, string];
-      }>;
+        if (!results.length) {
+          setSearchError("No place found. Try another name.");
+          return;
+        }
 
-      if (!results.length) {
-        setSearchError("No place found. Try another name.");
-        return;
+        const place = results[0];
+        const map = mapRef.current;
+
+        if (place.boundingbox) {
+          const [south, north, west, east] = place.boundingbox.map(Number);
+          const bounds = L.latLngBounds(
+            L.latLng(south, west),
+            L.latLng(north, east)
+          );
+          map.fitBounds(bounds.pad(0.08), { maxZoom: 12, animate: true });
+        } else {
+          map.flyTo([Number(place.lat), Number(place.lon)], 10, {
+            duration: 1.1,
+          });
+        }
+      } catch {
+        setSearchError("Couldn't search right now. Try again.");
+      } finally {
+        setSearching(false);
       }
-
-      const place = results[0];
-      const map = mapRef.current;
-
-      if (place.boundingbox) {
-        // boundingbox: [south, north, west, east]
-        const [south, north, west, east] = place.boundingbox.map(Number);
-        const bounds = L.latLngBounds(
-          L.latLng(south, west),
-          L.latLng(north, east)
-        );
-        map.fitBounds(bounds.pad(0.08), { maxZoom: 12, animate: true });
-      } else {
-        map.flyTo([Number(place.lat), Number(place.lon)], 10, { duration: 1.2 });
-      }
-    } catch {
-      setSearchError("Couldn't search right now. Try again.");
-    } finally {
-      setSearching(false);
-    }
-  }, [searchQuery]);
+    },
+    [searchQuery]
+  );
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full bg-[#1a1412]">
       <div ref={containerRef} className="w-full h-full" />
 
-      {/* Location search */}
-      <form
-        onSubmit={searchLocation}
-        className="absolute top-16 left-1/2 -translate-x-1/2 z-[1000] w-[min(92vw,380px)] pointer-events-auto"
-      >
-        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#140f0e]/85 backdrop-blur-md shadow-xl p-1.5">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setSearchError(null);
-            }}
-            placeholder="Search country, city, town..."
-            className="flex-1 min-w-0 bg-transparent px-3 py-2 text-sm text-[#f6efe6] placeholder-white/35 focus:outline-none"
-          />
-          <button
-            type="submit"
-            disabled={searching || !searchQuery.trim()}
-            className="shrink-0 rounded-xl bg-[#ff5c5c] text-[#140f0e] font-semibold text-sm px-3.5 py-2 disabled:opacity-40 hover:brightness-110 transition"
-          >
-            {searching ? "..." : "Go"}
-          </button>
-        </div>
-        {searchError && (
-          <p className="mt-1.5 text-center text-xs text-[#ff5c5c] bg-black/50 rounded-lg px-2 py-1">
-            {searchError}
+      {/* First-entry overlay */}
+      {(loading || !mapReady) && (
+        <div className="absolute inset-0 z-[900] flex flex-col items-center justify-center bg-[#140f0e]/75 backdrop-blur-[2px] pointer-events-none transition-opacity">
+          <div className="text-4xl mb-3 animate-bounce-slow">😾</div>
+          <p className="font-display font-bold text-[#f6efe6] text-lg">
+            Loading the atlas…
           </p>
-        )}
-      </form>
-
-      {loading && (
-        <div className="absolute top-4 right-4 z-[1000] bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2 text-white text-sm font-medium pointer-events-none">
-          Loading cats...
+          <p className="text-sm text-white/45 mt-1">
+            Rounding up furious dots worldwide
+          </p>
         </div>
       )}
+
+      {active && (
+        <form
+          onSubmit={searchLocation}
+          className="absolute top-16 left-1/2 -translate-x-1/2 z-[1000] w-[min(92vw,380px)] pointer-events-auto"
+        >
+          <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#140f0e]/85 backdrop-blur-md shadow-xl p-1.5">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setSearchError(null);
+              }}
+              placeholder="Search country, city, town..."
+              className="flex-1 min-w-0 bg-transparent px-3 py-2 text-sm text-[#f6efe6] placeholder-white/35 focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={searching || !searchQuery.trim()}
+              className="shrink-0 rounded-xl bg-[#ff5c5c] text-[#140f0e] font-semibold text-sm px-3.5 py-2 disabled:opacity-40 hover:brightness-110 transition"
+            >
+              {searching ? "..." : "Go"}
+            </button>
+          </div>
+          {searchError && (
+            <p className="mt-1.5 text-center text-xs text-[#ff5c5c] bg-black/50 rounded-lg px-2 py-1">
+              {searchError}
+            </p>
+          )}
+        </form>
+      )}
+
       <div className="absolute bottom-4 right-4 z-[1000] bg-black/70 backdrop-blur-sm rounded-lg px-3 py-1.5 text-white text-xs pointer-events-none">
         {visibleCount === 0 && !loading
           ? "No cats in this view — pan or search another place"
           : `Showing ${visibleCount.toLocaleString()} cats in view`}
-        {visibleCount > 0 && mapRef.current && mapRef.current.getZoom() < DETAIL_ZOOM
+        {visibleCount > 0 &&
+        mapRef.current &&
+        mapRef.current.getZoom() < DETAIL_ZOOM
           ? " · zoom in for faces"
           : ""}
       </div>

@@ -103,3 +103,9 @@ h1, h2, h3, .font-display {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Softer tile appearance */
+.leaflet-tile-container img.map-tiles,
+.leaflet-tile.map-tiles {
+  opacity: 1;
+}
