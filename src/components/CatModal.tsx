@@ -48,6 +48,20 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
     setLastReceipt(null);
   }, [cat]);
 
+  useEffect(() => {
+    if (!cat) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [cat, onClose]);
+
   const quote = useMemo(() => {
     if (!cat) return "";
     return cat.mood === "happy"
@@ -108,15 +122,17 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
           </div>
 
           <p className="text-xs uppercase tracking-[0.2em] text-[#ff5c5c] font-semibold mb-2">
-            {isHappy ? "Adopted · Off the warpath" : "Currently furious"}
+            {lastReceipt || isHappy ? "Adopted · Off the warpath" : "Currently furious"}
           </p>
 
           <h2 className="font-display text-2xl font-bold text-[#f6efe6] mb-2">
-            {isHappy
-              ? cat.name
-                ? `${cat.name}`
-                : "A reformed menace"
-              : "Untitled menace"}
+            {lastReceipt
+              ? lastReceipt.name?.trim() || `Cat #${cat.id}`
+              : isHappy
+                ? cat.name
+                  ? `${cat.name}`
+                  : "A reformed menace"
+                : "Untitled menace"}
           </h2>
 
           <blockquote className="text-[#c4b8ae] text-sm italic mb-5 max-w-xs leading-relaxed">

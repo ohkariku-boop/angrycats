@@ -94,12 +94,17 @@ export async function fetchCatsInBounds(
   }
 
   // Normal (zoomed-in) view: single query
-  const cats = await rpcCats(south, west, north, east, limit, rowOffset);
-  for (let i = cats.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [cats[i], cats[j]] = [cats[j], cats[i]];
+  try {
+    const cats = await rpcCats(south, west, north, east, limit, rowOffset);
+    for (let i = cats.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cats[i], cats[j]] = [cats[j], cats[i]];
+    }
+    return cats;
+  } catch (e) {
+    console.error("fetchCatsInBounds failed:", e);
+    return [];
   }
-  return cats;
 }
 
 

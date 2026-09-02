@@ -262,9 +262,7 @@ export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
         }).toString();
 
       const res = await fetch(url, {
-        headers: {
-          Accept: "application/json",
-        },
+        headers: { Accept: "application/json" },
       });
 
       if (!res.ok) throw new Error("Search failed");
@@ -343,8 +341,10 @@ export function WorldMap({ onCatClick, refreshKey }: WorldMapProps) {
         </div>
       )}
       <div className="absolute bottom-4 right-4 z-[1000] bg-black/70 backdrop-blur-sm rounded-lg px-3 py-1.5 text-white text-xs pointer-events-none">
-        Showing {visibleCount.toLocaleString()} cats in view
-        {mapRef.current && mapRef.current.getZoom() < DETAIL_ZOOM
+        {visibleCount === 0 && !loading
+          ? "No cats in this view — pan or search another place"
+          : `Showing ${visibleCount.toLocaleString()} cats in view`}
+        {visibleCount > 0 && mapRef.current && mapRef.current.getZoom() < DETAIL_ZOOM
           ? " · zoom in for faces"
           : ""}
       </div>

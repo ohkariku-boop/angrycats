@@ -13,12 +13,18 @@ function App() {
   const [view, setView] = useState<"home" | "map">("home");
   const [latestHappy, setLatestHappy] = useState<Cat[]>([]);
   const [myReceipts, setMyReceipts] = useState<CatReceipt[]>([]);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   const loadStats = useCallback(async () => {
-    const s = await fetchStats();
-    if (s) setStats(s);
-    const happy = await fetchLatestHappyCats(12);
-    setLatestHappy(happy);
+    try {
+      const s = await fetchStats();
+      if (s) setStats(s);
+      const happy = await fetchLatestHappyCats(12);
+      setLatestHappy(happy);
+    } finally {
+      setStatsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -96,12 +102,13 @@ function App() {
       <header className="sticky top-0 z-50 border-b border-[#140f0e]/10 bg-[#f6efe6]/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 font-display font-bold text-lg">
-            <span className="text-2xl">😾</span>
-            <span>1,000,000 ANGRY CATS</span>
+            <span className="text-2xl" aria-hidden>😾</span>
+            <span className="hidden xs:inline sm:inline">1,000,000 ANGRY CATS</span>
+            <span className="sm:hidden">ANGRY CATS</span>
           </div>
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-[#140f0e]/70">
             <a href="#how" className="hover:text-[#140f0e]">How it works</a>
-            <a href="#why" className="hover:text-[#140f0e]">Why cats</a>
+            <a href="#why" className="hover:text-[#140f0e]">What you get</a>
             <a href="#receipts" className="hover:text-[#140f0e]">My receipts</a>
             <a href="#map-cta" className="hover:text-[#140f0e]">The map</a>
           </nav>
@@ -109,14 +116,41 @@ function App() {
             <div className="hidden sm:flex flex-col items-end text-[10px] leading-tight mr-1">
               <span className="text-[#140f0e]/45 uppercase tracking-wider">Still furious</span>
               <span className="font-bold tabular-nums text-[#ff5c5c]">
-                {angry.toLocaleString()}
+                {statsLoading ? "…" : angry.toLocaleString()}
               </span>
             </div>
             <button onClick={() => setView("map")} className="btn-primary text-sm py-2.5 px-5">
               Bribe a cat →
             </button>
+            <button
+              type="button"
+              className="md:hidden rounded-full border border-[#140f0e]/15 w-10 h-10 flex items-center justify-center"
+              aria-label="Menu"
+              aria-expanded={mobileOpen}
+              onClick={() => setMobileOpen((v) => !v)}
+            >
+              {mobileOpen ? "×" : "☰"}
+            </button>
           </div>
         </div>
+        {mobileOpen && (
+          <div className="md:hidden border-t border-[#140f0e]/10 px-4 py-3 flex flex-col gap-3 text-sm font-semibold">
+            <a href="#how" onClick={() => setMobileOpen(false)}>How it works</a>
+            <a href="#why" onClick={() => setMobileOpen(false)}>What you get</a>
+            <a href="#receipts" onClick={() => setMobileOpen(false)}>My receipts</a>
+            <a href="#map-cta" onClick={() => setMobileOpen(false)}>The map</a>
+            <button
+              type="button"
+              className="text-left text-[#ff5c5c]"
+              onClick={() => {
+                setMobileOpen(false);
+                setView("map");
+              }}
+            >
+              Open map →
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Hero */}
