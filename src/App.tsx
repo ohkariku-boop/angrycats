@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { WorldMap } from "@/components/WorldMap";
 import { ShareReceipt } from "@/components/ShareReceipt";
+import { ThankYou } from "@/components/ThankYou";
 import { StatsCounter } from "@/components/StatsCounter";
 import { CatModal } from "@/components/CatModal";
 import { fetchStats, fetchLatestHappyCats, confirmCheckoutSession, fetchCatById } from "@/lib/api";
@@ -11,7 +12,8 @@ function App() {
   const [stats, setStats] = useState<GlobalStats | null>(null);
   const [selectedCat, setSelectedCat] = useState<Cat | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [view, setView] = useState<"home" | "map">("home");
+  const [view, setView] = useState<"home" | "map" | "thanks">("home");
+  const [thanksReceipt, setThanksReceipt] = useState<CatReceipt | null>(null);
   const [latestHappy, setLatestHappy] = useState<Cat[]>([]);
   const [myReceipts, setMyReceipts] = useState<CatReceipt[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -49,13 +51,14 @@ function App() {
     if (!happyId && !sessionId) return;
 
     (async () => {
-      // Prefer confirming via Stripe session (works even if webhook failed)
+      let receipt: CatReceipt | null = null;
+
       if (sessionId) {
         const result = await confirmCheckoutSession(sessionId);
         if (result.success && result.catId) {
           const cat = await fetchCatById(result.catId);
           if (cat) {
-            saveReceipt(cat, result.name || cat.name || undefined);
+            receipt = saveReceipt(cat, result.name || cat.name || undefined);
             setSelectedCat(cat);
           }
           setMyReceipts(loadReceipts());
@@ -66,7 +69,7 @@ function App() {
           const cat = await fetchCatById(id);
           if (cat) {
             if (cat.mood === "happy") {
-              saveReceipt(cat, cat.name || undefined);
+              receipt = saveReceipt(cat, cat.name || undefined);
               setMyReceipts(loadReceipts());
             }
             setSelectedCat(cat);
@@ -76,8 +79,14 @@ function App() {
 
       await loadStats();
       setRefreshKey((k) => k + 1);
-      setView("map");
       window.history.replaceState({}, "", window.location.pathname);
+
+      if (receipt) {
+        setThanksReceipt(receipt);
+        setView("thanks");
+      } else {
+        setView("map");
+      }
     })();
   }, [loadStats]);
 
@@ -93,6 +102,21 @@ function App() {
 
   const angry = stats?.angry_cats ?? 1000000;
   const happy = stats?.happy_cats ?? 0;
+
+  if (view === "thanks" && thanksReceipt) {
+    return (
+      <ThankYou
+        receipt={thanksReceipt}
+        onViewMap={() => {
+          setView("map");
+        }}
+        onHome={() => {
+          setThanksReceipt(null);
+          setView("home");
+        }}
+      />
+    );
+  }
 
   if (view === "map") {
     return (
