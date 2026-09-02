@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { type Cat } from "@/lib/supabase";
-import { makeCatHappyDirect } from "@/lib/api";
+import { makeCatHappyDirect, makeCatHappyViaStripe } from "@/lib/api";
 import { saveReceipt, type CatReceipt } from "@/lib/receipts";
 import { CatIcon } from "./CatIcon";
 
@@ -79,7 +79,14 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
     setError(null);
 
     try {
-      // Demo mode: direct update, no Stripe
+      // Prefer Stripe Checkout (test or live depending on secrets)
+      const url = await makeCatHappyViaStripe(cat.id, name);
+      if (url) {
+        window.location.href = url;
+        return;
+      }
+
+      // Fallback: demo direct bribe if Stripe is unavailable
       const success = await makeCatHappyDirect(cat.id, name);
       if (success) {
         const receipt = saveReceipt(cat, name);
@@ -233,8 +240,8 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
               <p className="text-[11px] text-white/35 mt-3">
                 Includes naming rights, one (1) temporary truce, and zero apologies from the cat.
               </p>
-              <p className="text-xs text-[#ffc857]/80 mt-2">
-                Demo mode — no payment charged. Stripe can be wired up later.
+              <p className="text-xs text-white/35 mt-2">
+                You&apos;ll complete a $0.50 checkout (Stripe test cards work in test mode).
               </p>
               {error && <p className="text-sm text-[#ff5c5c] mt-3">{error}</p>}
             </>

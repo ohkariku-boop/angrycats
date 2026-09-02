@@ -143,14 +143,21 @@ export async function fetchCatById(id: number): Promise<Cat | null> {
   return data;
 }
 
-export async function makeCatHappyViaStripe(catId: number): Promise<string | null> {
+export async function makeCatHappyViaStripe(
+  catId: number,
+  name?: string
+): Promise<string | null> {
   const res = await fetch(FUNCTION_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${ANON_KEY}`,
     },
-    body: JSON.stringify({ catId, action: "create-checkout" }),
+    body: JSON.stringify({
+      catId,
+      action: "create-checkout",
+      name: name?.trim() || undefined,
+    }),
   });
 
   if (!res.ok) {
