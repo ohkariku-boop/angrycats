@@ -143,6 +143,35 @@ export async function fetchCatById(id: number): Promise<Cat | null> {
   return data;
 }
 
+export async function confirmCheckoutSession(
+  sessionId: string
+): Promise<{ success: boolean; catId?: number; name?: string | null }> {
+  try {
+    const res = await fetch(FUNCTION_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${ANON_KEY}`,
+        apikey: ANON_KEY,
+      },
+      body: JSON.stringify({ action: "confirm-session", sessionId }),
+    });
+    if (!res.ok) {
+      console.error("confirm-session failed", await res.text());
+      return { success: false };
+    }
+    const data = await res.json();
+    return {
+      success: data.success === true,
+      catId: data.catId,
+      name: data.name ?? null,
+    };
+  } catch (e) {
+    console.error(e);
+    return { success: false };
+  }
+}
+
 export async function makeCatHappyViaStripe(
   catId: number,
   name?: string
@@ -152,6 +181,7 @@ export async function makeCatHappyViaStripe(
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${ANON_KEY}`,
+      apikey: ANON_KEY,
     },
     body: JSON.stringify({
       catId,

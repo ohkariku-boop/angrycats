@@ -26,7 +26,6 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
-  // Stripe webhooks: raw body + signature (not our JSON action API)
   const stripeSig = req.headers.get("stripe-signature");
   if (stripeSig) {
     return handleStripeWebhook(req, stripeSig);
@@ -34,30 +33,30 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = await req.json();
-    const { catId, action, name } = body;
+    const { catId, action, name, sessionId } = body;
 
     if (action === "create-checkout") {
       if (!STRIPE_SECRET_KEY) {
         return json({ error: "Stripe not configured" }, 503);
       }
-      if (!catId) {
-        return json({ error: "catId required" }, 400);
-      }
+      if (!catId) return json({ error: "catId required" }, 400);
 
       const catName =
         typeof name === "string" ? name.trim().slice(0, 40) : "";
 
       const params = new URLSearchParams();
       params.set("mode", "payment");
-      params.set("success_url", `${APP_URL}/?happy=${catId}`);
+      // Include session_id so client can confirm payment if webhook lags/fails
+      params.set(
+        "success_url",
+        `${APP_URL}/?happy=${catId}&session_id={CHECKOUT_SESSION_ID}`
+      );
       params.set("cancel_url", `${APP_URL}/?cancelled=1`);
       params.set("line_items[0][price_data][currency]", "usd");
       params.set("line_items[0][price_data][unit_amount]", "50");
       params.set(
         "line_items[0][price_data][product_data][name]",
-        catName
-          ? `Bribe cat: ${catName}`
-          : `Bribe angry cat #${catId}`
+        catName ? `Bribe cat: ${catName}` : `Bribe angry cat #${catId}`
       );
       params.set("line_items[0][quantity]", "1");
       params.set("metadata[cat_id]", String(catId));
@@ -85,25 +84,59 @@ Deno.serve(async (req: Request) => {
       return json({ url: session.url });
     }
 
-    // Demo / fallback — only if explicitly requested
+    // Client returns from Checkout — verify with Stripe and mark happy
+    if (action === "confirm-session") {
+      if (!STRIPE_SECRET_KEY) {
+        return json({ error: "Stripe not configured" }, 503);
+      }
+      if (!sessionId || typeof sessionId !== "string") {
+        return json({ error: "sessionId required" }, 400);
+      }
+
+      const stripeRes = await fetch(
+        `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`,
+        {
+          headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
+        }
+      );
+      if (!stripeRes.ok) {
+        const err = await stripeRes.text();
+        return json({ error: "Could not load session", details: err }, 502);
+      }
+
+      const session = await stripeRes.json();
+      if (session.payment_status !== "paid") {
+        return json({
+          success: false,
+          error: "not_paid",
+          payment_status: session.payment_status,
+        });
+      }
+
+      const paidCatId = session.metadata?.cat_id;
+      const paidName = session.metadata?.cat_name?.trim().slice(0, 40) || null;
+      if (!paidCatId) {
+        return json({ success: false, error: "no_cat_in_metadata" }, 400);
+      }
+
+      const result = await markCatHappy(paidCatId, paidName);
+      return json({
+        success: true,
+        catId: parseInt(paidCatId, 10),
+        name: paidName,
+        ...result,
+      });
+    }
+
     if (action === "make-happy") {
       if (!catId) return json({ error: "catId required" }, 400);
       const catName =
         typeof name === "string" ? name.trim().slice(0, 40) : null;
-      const { data, error } = await supabase
-        .from("cats")
-        .update({
-          mood: "happy",
-          made_happy_at: new Date().toISOString(),
-          name: catName,
-        })
-        .eq("id", catId)
-        .eq("mood", "angry")
-        .select("id")
-        .maybeSingle();
-      if (error) return json({ error: error.message }, 500);
-      if (!data) return json({ error: "Cat not found or already happy" }, 404);
-      return json({ success: true, cat: data });
+      const result = await markCatHappy(String(catId), catName);
+      if (!result.ok) {
+        return json({ error: result.reason }, result.reason === "not_found" ? 404 : 500);
+      }
+      return json({ success: true, already_happy: result.already_happy, id: result.id });
     }
 
     return json({ error: "Unknown action" }, 400);
@@ -112,6 +145,47 @@ Deno.serve(async (req: Request) => {
     return json({ error: message }, 500);
   }
 });
+
+async function markCatHappy(
+  catId: string,
+  catName: string | null
+): Promise<{ ok: boolean; already_happy?: boolean; id?: number; reason?: string }> {
+  const id = parseInt(catId, 10);
+  if (Number.isNaN(id)) return { ok: false, reason: "invalid_id" };
+
+  const update: Record<string, unknown> = {
+    mood: "happy",
+    made_happy_at: new Date().toISOString(),
+  };
+  if (catName) update.name = catName;
+
+  const { data, error } = await supabase
+    .from("cats")
+    .update(update)
+    .eq("id", id)
+    .eq("mood", "angry")
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("markCatHappy error", error);
+    return { ok: false, reason: error.message };
+  }
+
+  if (data) return { ok: true, id: data.id, already_happy: false };
+
+  // Already happy is still success
+  const { data: existing } = await supabase
+    .from("cats")
+    .select("id, mood")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (existing?.mood === "happy") {
+    return { ok: true, id, already_happy: true };
+  }
+  return { ok: false, reason: "not_found" };
+}
 
 async function handleStripeWebhook(
   req: Request,
@@ -152,24 +226,8 @@ async function handleStripeWebhook(
     const session = event.data?.object;
     const catId = session?.metadata?.cat_id;
     const catName = session?.metadata?.cat_name?.trim().slice(0, 40) || null;
-
     if (catId) {
-      const update: Record<string, unknown> = {
-        mood: "happy",
-        made_happy_at: new Date().toISOString(),
-      };
-      if (catName) update.name = catName;
-
-      const { error } = await supabase
-        .from("cats")
-        .update(update)
-        .eq("id", parseInt(catId, 10))
-        .eq("mood", "angry");
-
-      if (error) {
-        console.error("Failed to update cat after payment", error);
-        return json({ error: error.message }, 500);
-      }
+      await markCatHappy(catId, catName);
     }
   }
 
@@ -192,7 +250,6 @@ async function verifyStripeSignature(
     const signature = map["v1"];
     if (!timestamp || !signature) return false;
 
-    // Reject stale timestamps (5 min)
     const ts = parseInt(timestamp, 10);
     if (Math.abs(Date.now() / 1000 - ts) > 300) return false;
 

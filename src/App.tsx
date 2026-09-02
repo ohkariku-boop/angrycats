@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { WorldMap } from "@/components/WorldMap";
 import { StatsCounter } from "@/components/StatsCounter";
 import { CatModal } from "@/components/CatModal";
-import { fetchStats, fetchLatestHappyCats } from "@/lib/api";
-import { loadReceipts, receiptShareText, type CatReceipt } from "@/lib/receipts";
+import { fetchStats, fetchLatestHappyCats, confirmCheckoutSession, fetchCatById } from "@/lib/api";
+import { loadReceipts, saveReceipt, receiptShareText, type CatReceipt } from "@/lib/receipts";
 import type { Cat, GlobalStats } from "@/lib/supabase";
 
 function App() {
@@ -36,12 +36,48 @@ function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("happy")) {
-      loadStats();
+    const happyId = params.get("happy");
+    const sessionId = params.get("session_id");
+    const cancelled = params.get("cancelled");
+
+    if (cancelled) {
+      window.history.replaceState({}, "", window.location.pathname);
+      return;
+    }
+
+    if (!happyId && !sessionId) return;
+
+    (async () => {
+      // Prefer confirming via Stripe session (works even if webhook failed)
+      if (sessionId) {
+        const result = await confirmCheckoutSession(sessionId);
+        if (result.success && result.catId) {
+          const cat = await fetchCatById(result.catId);
+          if (cat) {
+            saveReceipt(cat, result.name || cat.name || undefined);
+            setSelectedCat(cat);
+          }
+          setMyReceipts(loadReceipts());
+        }
+      } else if (happyId) {
+        const id = parseInt(happyId, 10);
+        if (!Number.isNaN(id)) {
+          const cat = await fetchCatById(id);
+          if (cat) {
+            if (cat.mood === "happy") {
+              saveReceipt(cat, cat.name || undefined);
+              setMyReceipts(loadReceipts());
+            }
+            setSelectedCat(cat);
+          }
+        }
+      }
+
+      await loadStats();
       setRefreshKey((k) => k + 1);
       setView("map");
       window.history.replaceState({}, "", window.location.pathname);
-    }
+    })();
   }, [loadStats]);
 
   const handleCatClick = useCallback((cat: Cat) => {
