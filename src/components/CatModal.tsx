@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { type Cat } from "@/lib/supabase";
 import { makeCatHappyDirect, makeCatHappyViaStripe } from "@/lib/api";
 import { saveReceipt, type CatReceipt } from "@/lib/receipts";
+import { ShareReceipt } from "./ShareReceipt";
 import { CatIcon } from "./CatIcon";
 
 type CatModalProps = {
@@ -179,25 +180,11 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
                   Valid for bragging rights. Cat may still ignore you in person.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={async () => {
-                  const text = `I bribed an angry cat.\n${lastReceipt.name?.trim() || "Cat #" + lastReceipt.id} · #${lastReceipt.id}\n${lastReceipt.lat.toFixed(2)}°, ${lastReceipt.lng.toFixed(2)}°\nTruce sealed on Million Angry Cats.`;
-                  try {
-                    await navigator.clipboard.writeText(text);
-                  } catch {
-                    /* ignore */
-                  }
-                  onClose();
-                }}
-                className="w-full py-3.5 rounded-full bg-[#ffc857] text-[#140f0e] font-display font-bold text-lg hover:brightness-110 transition"
-              >
-                Copy brag & close
-              </button>
+              <ShareReceipt receipt={lastReceipt} variant="dark" />
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full py-2 text-sm text-white/40 hover:text-white/70"
+                className="w-full py-2.5 text-sm text-white/40 hover:text-white/70"
               >
                 Close
               </button>

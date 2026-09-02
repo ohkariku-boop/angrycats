@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { WorldMap } from "@/components/WorldMap";
+import { ShareReceipt } from "@/components/ShareReceipt";
 import { StatsCounter } from "@/components/StatsCounter";
 import { CatModal } from "@/components/CatModal";
 import { fetchStats, fetchLatestHappyCats, confirmCheckoutSession, fetchCatById } from "@/lib/api";
-import { loadReceipts, saveReceipt, receiptShareText, type CatReceipt } from "@/lib/receipts";
+import { loadReceipts, saveReceipt, type CatReceipt } from "@/lib/receipts";
 import type { Cat, GlobalStats } from "@/lib/supabase";
 
 function App() {
@@ -398,19 +399,9 @@ function App() {
                     })}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(receiptShareText(r));
-                    } catch {
-                      /* ignore */
-                    }
-                  }}
-                  className="mt-4 w-full rounded-full border border-[#140f0e]/15 py-2 text-sm font-semibold hover:bg-[#140f0e]/5 transition"
-                >
-                  Copy brag text
-                </button>
+                <div className="mt-4">
+                  <ShareReceipt receipt={r} variant="light" />
+                </div>
               </div>
             ))}
           </div>
