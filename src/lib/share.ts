@@ -6,7 +6,7 @@ export function receiptShareText(r: CatReceipt): string {
     `I bribed an angry cat on Million Angry Cats!\n` +
     `${label} · #${r.id}\n` +
     `${r.lat.toFixed(2)}°, ${r.lng.toFixed(2)}°\n` +
-    `Truce sealed. $0.50 well spent.\n` +
+    `Truce sealed. $0.99 well spent.\n` +
     `https://ohkariku-boop.github.io/angrycats/`
   );
 }
@@ -38,7 +38,7 @@ export function downloadReceiptPdf(r: CatReceipt): void {
     `Coordinates: ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}`,
     `Bribed: ${when}`,
     "",
-    "Amount: USD 0.50",
+    "Amount: USD 0.99",
     "Status: CEASEFIRE (probationary)",
     "",
     "Valid for bragging rights worldwide.",

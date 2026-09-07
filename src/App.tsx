@@ -250,7 +250,7 @@ function App() {
           </h1>
           <p className="max-w-xl mx-auto text-lg md:text-xl text-[#140f0e]/65 leading-relaxed mb-8">
             One million cats. Scattered across Earth. All furious.
-            For <strong className="text-[#140f0e]">$0.50</strong> you can bribe one,
+            For <strong className="text-[#140f0e]">$0.99</strong> you can bribe one,
             name it, and rent its affection forever*.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -290,7 +290,7 @@ function App() {
             { label: "Total cats", value: (stats?.total_cats ?? 1000000).toLocaleString() },
             { label: "Still angry", value: angry.toLocaleString(), accent: "text-[#ff5c5c]" },
             { label: "Successfully bribed", value: happy.toLocaleString(), accent: "text-amber-600" },
-            { label: "Cost of peace", value: "$0.50" },
+            { label: "Cost of peace", value: "$0.99" },
           ].map((item) => (
             <div key={item.label}>
               <div className={`font-display text-3xl font-bold tabular-nums ${item.accent ?? ""}`}>
@@ -327,7 +327,7 @@ function App() {
             {
               step: "03",
               title: "Bribe & name",
-              body: "Pay $0.50, give it a ridiculous name, and watch the frown invert. Peace (probationary) achieved.",
+              body: "Pay $0.99, give it a ridiculous name, and watch the frown invert. Peace (probationary) achieved.",
             },
           ].map((card) => (
             <div
@@ -382,7 +382,7 @@ function App() {
           The world is full of tiny enemies
         </h2>
         <p className="text-[#140f0e]/55 mb-8 max-w-md mx-auto">
-          Open the live map. Pick a continent. Start diplomatic negotiations at $0.50 a head.
+          Open the live map. Pick a continent. Start diplomatic negotiations at $0.99 a head.
         </p>
         <button onClick={() => setView("map")} className="btn-primary text-lg px-10">
           Enter the map of rage →

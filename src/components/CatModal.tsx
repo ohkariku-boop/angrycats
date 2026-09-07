@@ -213,14 +213,14 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
                 {processing
                   ? "Negotiating ceasefire..."
                   : name.trim()
-                    ? `Bribe “${name.trim()}” — $0.50`
-                    : "Bribe this cat — $0.50"}
+                    ? `Bribe “${name.trim()}” — $0.99`
+                    : "Bribe this cat — $0.99"}
               </button>
               <p className="text-[11px] text-white/35 mt-3">
                 Includes naming rights, one (1) temporary truce, and zero apologies from the cat.
               </p>
               <p className="text-xs text-white/35 mt-2">
-                $0.50 via Stripe Checkout. No free bribes — the cat insists.
+                $0.99 via Stripe Checkout. No free bribes — the cat insists.
               </p>
               {error && <p className="text-sm text-[#ff5c5c] mt-3">{error}</p>}
             </>

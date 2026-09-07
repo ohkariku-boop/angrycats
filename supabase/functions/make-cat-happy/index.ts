@@ -53,7 +53,7 @@ Deno.serve(async (req: Request) => {
       );
       params.set("cancel_url", `${APP_URL}/?cancelled=1`);
       params.set("line_items[0][price_data][currency]", "usd");
-      params.set("line_items[0][price_data][unit_amount]", "50");
+      params.set("line_items[0][price_data][unit_amount]", "99");
       params.set(
         "line_items[0][price_data][product_data][name]",
         catName ? `Bribe cat: ${catName}` : `Bribe angry cat #${catId}`

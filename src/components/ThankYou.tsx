@@ -54,7 +54,7 @@ export function ThankYou({ receipt, onViewMap, onHome }: Props) {
                 </div>
                 <div>
                   <div className="text-white/35 text-[10px] uppercase">Amount</div>
-                  <div className="font-semibold">$0.50 USD</div>
+                  <div className="font-semibold">$0.99 USD</div>
                 </div>
                 <div>
                   <div className="text-white/35 text-[10px] uppercase">Location</div>
