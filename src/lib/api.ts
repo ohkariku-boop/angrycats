@@ -174,7 +174,8 @@ export async function confirmCheckoutSession(
 
 export async function makeCatHappyViaStripe(
   catId: number,
-  name?: string
+  name?: string,
+  packId: string = "lone_mouser"
 ): Promise<string | null> {
   const res = await fetch(FUNCTION_URL, {
     method: "POST",
@@ -187,6 +188,7 @@ export async function makeCatHappyViaStripe(
       catId,
       action: "create-checkout",
       name: name?.trim() || undefined,
+      packId,
     }),
   });
 

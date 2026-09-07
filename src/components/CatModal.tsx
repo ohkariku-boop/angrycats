@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { type Cat } from "@/lib/supabase";
 import { makeCatHappyViaStripe } from "@/lib/api";
+import { BRIBE_PACKS, type PackId } from "@/lib/packs";
 import { type CatReceipt } from "@/lib/receipts";
 import { ShareReceipt } from "./ShareReceipt";
 import { CatIcon } from "./CatIcon";
@@ -42,11 +43,13 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [lastReceipt, setLastReceipt] = useState<CatReceipt | null>(null);
+  const [packId, setPackId] = useState<PackId>("lone_mouser");
 
   useEffect(() => {
     setError(null);
     setName("");
     setLastReceipt(null);
+    setPackId("lone_mouser");
   }, [cat]);
 
   useEffect(() => {
@@ -80,7 +83,7 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
     setError(null);
 
     try {
-      const url = await makeCatHappyViaStripe(cat.id, name);
+      const url = await makeCatHappyViaStripe(cat.id, name, packId);
       if (url) {
         window.location.href = url;
         return;
@@ -190,7 +193,7 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
             </button>
           ) : (
             <>
-              <div className="w-full mb-4 text-left">
+              <div className="w-full mb-3 text-left">
                 <label htmlFor="cat-name" className="block text-sm text-[#c4b8ae] mb-1.5">
                   Name this chaos agent
                 </label>
@@ -205,6 +208,39 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
                 />
               </div>
 
+              <div className="w-full mb-4 text-left space-y-2">
+                <p className="text-sm text-[#c4b8ae]">Choose your truce package</p>
+                {BRIBE_PACKS.map((pack) => {
+                  const selected = packId === pack.id;
+                  return (
+                    <button
+                      key={pack.id}
+                      type="button"
+                      onClick={() => setPackId(pack.id)}
+                      className={`w-full text-left rounded-2xl border px-3 py-2.5 transition ${
+                        selected
+                          ? "border-[#ffc857] bg-[#ffc857]/10"
+                          : "border-white/10 bg-white/5 hover:border-white/25"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-display font-bold text-sm text-[#f6efe6]">
+                          {pack.name}
+                        </span>
+                        <span className="text-sm font-semibold text-[#ffc857]">
+                          {pack.priceLabel}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-white/40 mt-0.5">
+                        {pack.cats === 1
+                          ? pack.blurb
+                          : `${pack.cats} cats · ${pack.blurb}`}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+
               <button
                 onClick={handleMakeHappy}
                 disabled={processing}
@@ -212,15 +248,15 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
               >
                 {processing
                   ? "Negotiating ceasefire..."
-                  : name.trim()
-                    ? `Bribe “${name.trim()}” — $0.99`
-                    : "Bribe this cat — $0.99"}
+                  : `Checkout — ${BRIBE_PACKS.find((p) => p.id === packId)?.priceLabel ?? "$0.99"}`}
               </button>
               <p className="text-[11px] text-white/35 mt-3">
-                Includes naming rights, one (1) temporary truce, and zero apologies from the cat.
+                Packs bribe this cat
+                {packId !== "lone_mouser" ? " plus random colleagues worldwide" : ""}
+                . Naming applies to the cat you clicked.
               </p>
               <p className="text-xs text-white/35 mt-2">
-                $0.99 via Stripe Checkout. No free bribes — the cat insists.
+                Paid via Stripe. No free bribes — the cabinet insists.
               </p>
               {error && <p className="text-sm text-[#ff5c5c] mt-3">{error}</p>}
             </>

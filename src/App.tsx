@@ -327,7 +327,7 @@ function App() {
             {
               step: "03",
               title: "Bribe & name",
-              body: "Pay $0.99, give it a ridiculous name, and watch the frown invert. Peace (probationary) achieved.",
+              body: "Lone Mouser, Cabinet of Cats, or full Pawliament. Name one. Bribe many. Peace (probationary) achieved.",
             },
           ].map((card) => (
             <div

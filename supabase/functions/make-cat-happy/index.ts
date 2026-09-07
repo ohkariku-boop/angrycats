@@ -10,7 +10,7 @@ const corsHeaders = {
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 const STRIPE_WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
 const APP_URL =
-  Deno.env.get("APP_URL") ?? "https://ohkariku-boop.github.io/angrycats";
+  Deno.env.get("APP_URL") ?? "https://angrycats.vercel.app";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
@@ -20,6 +20,15 @@ const SERVICE_ROLE =
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false },
 });
+
+const PACKS: Record<
+  string,
+  { cats: number; cents: number; label: string }
+> = {
+  lone_mouser: { cats: 1, cents: 99, label: "Lone Mouser" },
+  cabinet: { cats: 5, cents: 399, label: "Cabinet of Cats" },
+  pawliament: { cats: 10, cents: 699, label: "Pawliament Pack" },
+};
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -43,23 +52,42 @@ Deno.serve(async (req: Request) => {
 
       const catName =
         typeof name === "string" ? name.trim().slice(0, 40) : "";
+      const packKey =
+        typeof body.packId === "string" && PACKS[body.packId]
+          ? body.packId
+          : "lone_mouser";
+      const pack = PACKS[packKey];
+
+      const productTitle = catName
+        ? `${pack.label}: ${catName}`
+        : `${pack.label} (cat #${catId})`;
 
       const params = new URLSearchParams();
       params.set("mode", "payment");
-      // Include session_id so client can confirm payment if webhook lags/fails
       params.set(
         "success_url",
         `${APP_URL}/?happy=${catId}&session_id={CHECKOUT_SESSION_ID}`
       );
       params.set("cancel_url", `${APP_URL}/?cancelled=1`);
       params.set("line_items[0][price_data][currency]", "usd");
-      params.set("line_items[0][price_data][unit_amount]", "99");
+      params.set(
+        "line_items[0][price_data][unit_amount]",
+        String(pack.cents)
+      );
       params.set(
         "line_items[0][price_data][product_data][name]",
-        catName ? `Bribe cat: ${catName}` : `Bribe angry cat #${catId}`
+        productTitle
+      );
+      params.set(
+        "line_items[0][price_data][product_data][description]",
+        pack.cats === 1
+          ? "Bribe one angry cat"
+          : `Bribe ${pack.cats} angry cats (${pack.label})`
       );
       params.set("line_items[0][quantity]", "1");
       params.set("metadata[cat_id]", String(catId));
+      params.set("metadata[pack_id]", packKey);
+      params.set("metadata[pack_size]", String(pack.cats));
       if (catName) params.set("metadata[cat_name]", catName);
 
       const stripeRes = await fetch(
@@ -115,15 +143,17 @@ Deno.serve(async (req: Request) => {
 
       const paidCatId = session.metadata?.cat_id;
       const paidName = session.metadata?.cat_name?.trim().slice(0, 40) || null;
+      const packSize = parseInt(session.metadata?.pack_size || "1", 10) || 1;
       if (!paidCatId) {
         return json({ success: false, error: "no_cat_in_metadata" }, 400);
       }
 
-      const result = await markCatHappy(paidCatId, paidName);
+      const result = await fulfillPack(paidCatId, paidName, packSize);
       return json({
         success: true,
         catId: parseInt(paidCatId, 10),
         name: paidName,
+        packSize,
         ...result,
       });
     }
@@ -176,6 +206,44 @@ async function markCatHappy(
   return { ok: false, reason: "not_found" };
 }
 
+async function fulfillPack(
+  catId: string,
+  catName: string | null,
+  packSize: number
+): Promise<{ ok: boolean; fulfilled: number; reason?: string }> {
+  const primary = await markCatHappy(catId, catName);
+  if (!primary.ok && primary.reason !== "not_found") {
+    return { ok: false, fulfilled: 0, reason: primary.reason };
+  }
+
+  let fulfilled = primary.ok ? 1 : 0;
+  const extra = Math.max(0, Math.min(packSize, 10) - 1);
+  if (extra > 0) {
+    // Random angry cats worldwide (exclude primary)
+    const { data: extras, error } = await supabase
+      .from("cats")
+      .select("id")
+      .eq("mood", "angry")
+      .neq("id", parseInt(catId, 10))
+      .limit(extra * 3);
+
+    if (!error && extras && extras.length) {
+      // shuffle
+      for (let i = extras.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [extras[i], extras[j]] = [extras[j], extras[i]];
+      }
+      const chosen = extras.slice(0, extra);
+      for (const row of chosen) {
+        const r = await markCatHappy(String(row.id), null);
+        if (r.ok) fulfilled++;
+      }
+    }
+  }
+
+  return { ok: true, fulfilled };
+}
+
 async function handleStripeWebhook(
   req: Request,
   sig: string
@@ -215,8 +283,9 @@ async function handleStripeWebhook(
     const session = event.data?.object;
     const catId = session?.metadata?.cat_id;
     const catName = session?.metadata?.cat_name?.trim().slice(0, 40) || null;
+    const packSize = parseInt(session?.metadata?.pack_size || "1", 10) || 1;
     if (catId) {
-      await markCatHappy(catId, catName);
+      await fulfillPack(catId, catName, packSize);
     }
   }
 
