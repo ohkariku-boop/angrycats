@@ -128,17 +128,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    if (action === "make-happy") {
-      if (!catId) return json({ error: "catId required" }, 400);
-      const catName =
-        typeof name === "string" ? name.trim().slice(0, 40) : null;
-      const result = await markCatHappy(String(catId), catName);
-      if (!result.ok) {
-        return json({ error: result.reason }, result.reason === "not_found" ? 404 : 500);
-      }
-      return json({ success: true, already_happy: result.already_happy, id: result.id });
-    }
-
     return json({ error: "Unknown action" }, 400);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

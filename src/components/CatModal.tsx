@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { type Cat } from "@/lib/supabase";
-import { makeCatHappyDirect, makeCatHappyViaStripe } from "@/lib/api";
-import { saveReceipt, type CatReceipt } from "@/lib/receipts";
+import { makeCatHappyViaStripe } from "@/lib/api";
+import { type CatReceipt } from "@/lib/receipts";
 import { ShareReceipt } from "./ShareReceipt";
 import { CatIcon } from "./CatIcon";
 
@@ -80,22 +80,14 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
     setError(null);
 
     try {
-      // Prefer Stripe Checkout (test or live depending on secrets)
       const url = await makeCatHappyViaStripe(cat.id, name);
       if (url) {
         window.location.href = url;
         return;
       }
-
-      // Fallback: demo direct bribe if Stripe is unavailable
-      const success = await makeCatHappyDirect(cat.id, name);
-      if (success) {
-        const receipt = saveReceipt(cat, name);
-        setLastReceipt(receipt);
-        onMadeHappy();
-      } else {
-        setError("This cat rejected your offering. Try again.");
-      }
+      setError(
+        "Checkout couldn't start. Payment is required — try again in a moment."
+      );
     } catch (err) {
       console.error(err);
       setError("Something broke. The cat is smugly unsurprised.");
@@ -228,7 +220,7 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
                 Includes naming rights, one (1) temporary truce, and zero apologies from the cat.
               </p>
               <p className="text-xs text-white/35 mt-2">
-                You&apos;ll complete a $0.50 checkout (Stripe test cards work in test mode).
+                $0.50 via Stripe Checkout. No free bribes — the cat insists.
               </p>
               {error && <p className="text-sm text-[#ff5c5c] mt-3">{error}</p>}
             </>
