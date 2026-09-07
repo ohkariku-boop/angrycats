@@ -2,10 +2,11 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 
-// https://vitejs.dev/config/
+// Vercel serves at domain root; GitHub Pages uses /angrycats/
+const base = process.env.VERCEL ? '/' : '/angrycats/';
+
 export default defineConfig({
-  // Required for GitHub Pages project site: https://ohkariku-boop.github.io/angrycats/
-  base: '/angrycats/',
+  base,
   plugins: [react()],
   resolve: {
     alias: {
