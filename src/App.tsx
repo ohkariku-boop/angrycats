@@ -347,7 +347,7 @@ function App() {
         <div className="max-w-6xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
           <div>
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-5">
-              What you actually get for fifty cents
+              What you actually get for under a buck
             </h2>
             <ul className="space-y-4 text-[#f6efe6]/75">
               <li className="flex gap-3">
@@ -364,7 +364,7 @@ function App() {
               </li>
               <li className="flex gap-3">
                 <span className="text-[#ff5c5c] font-bold">→</span>
-                <span><strong className="text-[#f6efe6]">Bragging rights.</strong> You paid half a dollar to calm chaos. That’s either charity or a cry for help.</span>
+                <span><strong className="text-[#f6efe6]">Bragging rights.</strong> You paid under a dollar to calm chaos. That’s either charity or a cry for help.</span>
               </li>
             </ul>
           </div>
