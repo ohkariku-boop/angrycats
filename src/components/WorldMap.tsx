@@ -319,7 +319,7 @@ export function WorldMap({
         }>;
 
         if (!results.length) {
-          setSearchError("No place found. Try another name.");
+          setSearchError("No matching location found. Try a city, region, or country name.");
           return;
         }
 
@@ -339,7 +339,7 @@ export function WorldMap({
           });
         }
       } catch {
-        setSearchError("Couldn't search right now. Try again.");
+        setSearchError("Location search is temporarily unavailable. Please try again.");
       } finally {
         setSearching(false);
       }
@@ -356,10 +356,10 @@ export function WorldMap({
         <div className="absolute inset-0 z-[900] flex flex-col items-center justify-center bg-[#140f0e]/75 backdrop-blur-[2px] pointer-events-none transition-opacity">
           <div className="text-4xl mb-3 animate-bounce-slow">😾</div>
           <p className="font-display font-bold text-[#f6efe6] text-lg">
-            Loading the atlas…
+            Loading the catlas…
           </p>
           <p className="text-sm text-white/45 mt-1">
-            Rounding up furious dots worldwide
+            Mapping one million GPS-tagged cats worldwide
           </p>
         </div>
       )}
@@ -367,43 +367,50 @@ export function WorldMap({
       {active && (
         <form
           onSubmit={searchLocation}
-          className="absolute top-16 left-1/2 -translate-x-1/2 z-[1000] w-[min(92vw,380px)] pointer-events-auto"
+          className="absolute top-16 left-1/2 -translate-x-1/2 z-[1000] w-[min(94vw,420px)] pointer-events-auto"
         >
-          <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#140f0e]/85 backdrop-blur-md shadow-xl p-1.5">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setSearchError(null);
-              }}
-              placeholder="Search country, city, town..."
-              className="flex-1 min-w-0 bg-transparent px-3 py-2 text-sm text-[#f6efe6] placeholder-white/35 focus:outline-none"
-            />
-            <button
-              type="submit"
-              disabled={searching || !searchQuery.trim()}
-              className="shrink-0 rounded-xl bg-[#ff5c5c] text-[#140f0e] font-semibold text-sm px-3.5 py-2 disabled:opacity-40 hover:brightness-110 transition"
-            >
-              {searching ? "..." : "Go"}
-            </button>
-          </div>
-          {searchError && (
-            <p className="mt-1.5 text-center text-xs text-[#ff5c5c] bg-black/50 rounded-lg px-2 py-1">
-              {searchError}
+          <div className="rounded-2xl border border-white/10 bg-[#140f0e]/90 backdrop-blur-md shadow-xl p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#ffc857] mb-1 px-1">
+              Catlas search
             </p>
-          )}
+            <p className="text-xs text-white/50 mb-2.5 px-1 leading-relaxed">
+              Can&apos;t find a cat on the catlas? Enter a country, state, or city
+              to zoom there, then select any marker to open a truce.
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setSearchError(null);
+                }}
+                placeholder="e.g. Singapore, Texas, Tokyo…"
+                className="flex-1 min-w-0 rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-sm text-[#f6efe6] placeholder-white/35 focus:outline-none focus:ring-2 focus:ring-[#ffc857]/40"
+              />
+              <button
+                type="submit"
+                disabled={searching || !searchQuery.trim()}
+                className="shrink-0 rounded-xl bg-[#ff5c5c] text-[#140f0e] font-semibold text-sm px-4 py-2.5 disabled:opacity-40 hover:brightness-110 transition"
+              >
+                {searching ? "…" : "Locate"}
+              </button>
+            </div>
+            {searchError && (
+              <p className="mt-2 text-xs text-[#ff5c5c] px-1">{searchError}</p>
+            )}
+          </div>
         </form>
       )}
 
-      <div className="absolute bottom-4 right-4 z-[1000] bg-black/70 backdrop-blur-sm rounded-lg px-3 py-1.5 text-white text-xs pointer-events-none">
+      <div className="absolute bottom-4 right-4 z-[1000] max-w-[min(92vw,280px)] bg-black/75 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-xs pointer-events-none">
         {visibleCount === 0 && !loading
-          ? "No cats in this view — pan or search another place"
+          ? "No cats in this view. Search a location above or pan the map."
           : `Showing ${visibleCount.toLocaleString()} cats in view`}
         {visibleCount > 0 &&
         mapRef.current &&
         mapRef.current.getZoom() < DETAIL_ZOOM
-          ? " · zoom in for faces"
+          ? " · Zoom in for detail"
           : ""}
       </div>
     </div>

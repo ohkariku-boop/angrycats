@@ -156,8 +156,8 @@ function App() {
         </div>
 
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
-          <p className="rounded-full bg-[#140f0e]/75 backdrop-blur-md border border-white/10 px-4 py-2 text-xs text-white/50 text-center">
-            Click any cat. Bribe it. Name it. Survive.
+          <p className="rounded-full bg-[#140f0e]/80 backdrop-blur-md border border-white/10 px-4 py-2 text-xs text-white/55 text-center max-w-[min(92vw,420px)]">
+            Select any cat on the catlas to review details and open a truce package.
           </p>
         </div>
       </div>
