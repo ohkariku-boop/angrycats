@@ -412,6 +412,9 @@ function App() {
             <p className="text-[#140f0e]/55 mt-1">
               Cats you&apos;ve bribed on this device. Flash these as bragging rights.
             </p>
+            <p className="text-sm text-[#140f0e]/40 mt-2">
+              Part 2: your cats may check in. Care system in the works.
+            </p>
           </div>
           {myReceipts.length > 0 && (
             <span className="text-sm font-semibold text-[#ff5c5c]">
