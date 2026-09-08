@@ -3,6 +3,7 @@ import { WorldMap } from "@/components/WorldMap";
 import { ShareReceipt } from "@/components/ShareReceipt";
 import { ThankYou } from "@/components/ThankYou";
 import { StatsCounter } from "@/components/StatsCounter";
+import { CatIcon } from "@/components/CatIcon";
 import { CatModal } from "@/components/CatModal";
 import { fetchStats, fetchLatestHappyCats, confirmCheckoutSession, fetchCatById } from "@/lib/api";
 import { loadReceipts, saveReceipt, type CatReceipt } from "@/lib/receipts";
@@ -193,11 +194,21 @@ function App() {
             <a href="#map-cta" className="hover:text-[#140f0e]">The map</a>
           </nav>
           <div className="flex items-center gap-2">
-            <div className="hidden sm:flex flex-col items-end text-[10px] leading-tight mr-1">
-              <span className="text-[#140f0e]/45 uppercase tracking-wider">Still furious</span>
-              <span className="font-bold tabular-nums text-[#ff5c5c]">
-                {statsLoading ? "…" : angry.toLocaleString()}
-              </span>
+            <div className="hidden sm:flex flex-col gap-1 mr-1 min-w-[120px]">
+              <div className="flex items-center gap-1.5 justify-end">
+                <CatIcon mood="angry" size={18} />
+                <span className="font-bold tabular-nums text-[#ff5c5c] text-sm">
+                  {statsLoading ? "…" : angry.toLocaleString()}
+                </span>
+                <span className="text-[10px] text-[#140f0e]/45">still furious</span>
+              </div>
+              <div className="flex items-center gap-1.5 justify-end">
+                <CatIcon mood="happy" size={18} />
+                <span className="font-bold tabular-nums text-amber-600 text-sm">
+                  {statsLoading ? "…" : happy.toLocaleString()}
+                </span>
+                <span className="text-[10px] text-[#140f0e]/45">bribed</span>
+              </div>
             </div>
             <button onClick={() => setView("map")} className="btn-primary text-sm py-2.5 px-5">
               Bribe a cat →

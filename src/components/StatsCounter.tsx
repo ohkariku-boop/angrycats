@@ -1,4 +1,5 @@
 import { type GlobalStats } from "@/lib/supabase";
+import { CatIcon } from "./CatIcon";
 
 type StatsCounterProps = {
   stats: GlobalStats | null;
@@ -13,16 +14,26 @@ export function StatsCounter({ stats, compact }: StatsCounterProps) {
 
   if (compact) {
     return (
-      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#140f0e]/80 backdrop-blur-md px-3 py-1.5 text-xs">
-        <span className="text-[#ff5c5c] font-semibold tabular-nums">
-          {angry.toLocaleString()}
-        </span>
-        <span className="text-white/40">still furious</span>
-        <span className="text-white/20">·</span>
-        <span className="text-[#ffc857] font-semibold tabular-nums">
-          {happy.toLocaleString()}
-        </span>
-        <span className="text-white/40">bribed</span>
+      <div className="rounded-2xl border border-white/10 bg-[#140f0e]/85 backdrop-blur-md px-3 py-2 text-xs min-w-[148px]">
+        <div className="flex items-center gap-2">
+          <CatIcon mood="angry" size={22} />
+          <div className="min-w-0">
+            <div className="font-semibold tabular-nums text-[#ff5c5c] leading-none">
+              {angry.toLocaleString()}
+            </div>
+            <div className="text-[10px] text-white/45 mt-0.5">still furious</div>
+          </div>
+        </div>
+        <div className="h-px bg-white/10 my-1.5" />
+        <div className="flex items-center gap-2">
+          <CatIcon mood="happy" size={22} />
+          <div className="min-w-0">
+            <div className="font-semibold tabular-nums text-[#ffc857] leading-none">
+              {happy.toLocaleString()}
+            </div>
+            <div className="text-[10px] text-white/45 mt-0.5">bribed</div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -32,18 +43,24 @@ export function StatsCounter({ stats, compact }: StatsCounterProps) {
       <p className="text-[11px] uppercase tracking-[0.18em] text-white/40 mb-3 font-semibold">
         Global cat mood
       </p>
-      <div className="flex items-end justify-between gap-4 mb-3">
-        <div>
-          <div className="text-3xl font-display font-bold text-[#ff5c5c] tabular-nums leading-none">
-            {angry.toLocaleString()}
+      <div className="space-y-3 mb-3">
+        <div className="flex items-center gap-3">
+          <CatIcon mood="angry" size={36} />
+          <div>
+            <div className="text-2xl font-display font-bold text-[#ff5c5c] tabular-nums leading-none">
+              {angry.toLocaleString()}
+            </div>
+            <div className="text-xs text-[#ff5c5c]/70 mt-1">still furious</div>
           </div>
-          <div className="text-xs text-[#ff5c5c]/70 mt-1">still plotting</div>
         </div>
-        <div className="text-right">
-          <div className="text-3xl font-display font-bold text-[#ffc857] tabular-nums leading-none">
-            {happy.toLocaleString()}
+        <div className="flex items-center gap-3">
+          <CatIcon mood="happy" size={36} />
+          <div>
+            <div className="text-2xl font-display font-bold text-[#ffc857] tabular-nums leading-none">
+              {happy.toLocaleString()}
+            </div>
+            <div className="text-xs text-[#ffc857]/70 mt-1">bribed</div>
           </div>
-          <div className="text-xs text-[#ffc857]/70 mt-1">temporarily chill</div>
         </div>
       </div>
       <div className="h-2.5 rounded-full overflow-hidden bg-[#ff5c5c]/25">
