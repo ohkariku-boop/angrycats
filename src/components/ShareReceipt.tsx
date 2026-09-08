@@ -159,6 +159,13 @@ export function ShareReceipt({ receipt, variant = "dark" }: Props) {
           Brag text copied — paste into Instagram or anywhere else.
         </p>
       )}
+      <p
+        className={`text-[11px] text-center leading-relaxed pt-1 ${
+          isDark ? "text-white/35" : "text-[#140f0e]/40"
+        }`}
+      >
+        Part 2: your cats may check in. Care system in the works.
+      </p>
     </div>
   );
 }
