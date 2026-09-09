@@ -96,7 +96,14 @@ export function ThankYou({ receipt, onViewMap, onHome }: Props) {
           </div>
         </div>
         <p className="text-center text-[11px] text-white/30 mt-4">
-          Charged by Chonkiee via Stripe · Digital truce · No cats were emailed
+          Questions?{" "}
+          <a
+            href="mailto:chiefsupportofficer@gmail.com"
+            className="text-white/50 hover:text-[#ffc857] underline-offset-2 hover:underline"
+          >
+            chiefsupportofficer@gmail.com
+          </a>
+          {" · "}Charged via Stripe · Digital truce
         </p>
       </div>
     </div>

@@ -536,6 +536,16 @@ function App() {
         <p className="font-display font-bold text-[#140f0e]/70 mb-2">Million Angry Cats</p>
         <p>Not affiliated with any real cats. They already have lawyers.</p>
         <p className="mt-2">{happy.toLocaleString()} truces signed · {angry.toLocaleString()} grudges ongoing</p>
+        <p className="mt-4">
+          <span className="text-[#140f0e]/45">Contact us</span>
+          {" · "}
+          <a
+            href="mailto:chiefsupportofficer@gmail.com"
+            className="text-[#140f0e]/70 font-semibold hover:text-[#ff5c5c] underline-offset-2 hover:underline"
+          >
+            chiefsupportofficer@gmail.com
+          </a>
+        </p>
       </footer>
 
       <CatModal
