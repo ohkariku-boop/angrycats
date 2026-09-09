@@ -437,23 +437,33 @@ function App() {
             {myReceipts.map((r) => (
               <div
                 key={`${r.id}-${r.bribed_at}`}
-                className="rounded-3xl border border-[#140f0e]/10 bg-white/80 p-5 shadow-sm relative overflow-hidden"
+                className="rounded-3xl border-2 border-[#140f0e]/12 bg-gradient-to-b from-white to-[#f6efe6]/80 p-5 shadow-sm relative overflow-hidden"
               >
-                <div className="absolute top-0 right-0 text-6xl opacity-10 -mr-2 -mt-2">😻</div>
-                <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-amber-700/80 mb-2">
-                  Truce receipt
+                <div className="absolute top-3 right-3 opacity-90">
+                  <div className="rounded-full border-2 border-[#140f0e]/10 bg-white p-1 shadow-sm">
+                    <CatIcon mood="angry" size={36} />
+                  </div>
+                </div>
+                <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-amber-700/90 mb-1 pr-14">
+                  Certificate of Truce
                 </p>
-                <h3 className="font-display text-xl font-bold truncate">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-[#140f0e]/40 mb-3 pr-14">
+                  Million Angry Cats
+                </p>
+                <h3 className="font-display text-xl font-bold truncate pr-14">
                   {r.name?.trim() || `Cat #${r.id}`}
                 </h3>
                 <p className="text-xs text-[#140f0e]/45 mt-0.5">Serial #{r.id}</p>
-                <div className="mt-3 space-y-1 text-sm text-[#140f0e]/65">
+                <div className="mt-3 space-y-1 text-sm text-[#140f0e]/65 border-t border-[#140f0e]/8 pt-3">
                   <div>{r.lat.toFixed(3)}°, {r.lng.toFixed(3)}°</div>
                   <div>
                     {new Date(r.bribed_at).toLocaleString(undefined, {
                       dateStyle: "medium",
                       timeStyle: "short",
                     })}
+                  </div>
+                  <div className="text-[11px] text-[#140f0e]/40 italic pt-1">
+                    Probationary ceasefire · Bragging rights included
                   </div>
                 </div>
                 <div className="mt-4">

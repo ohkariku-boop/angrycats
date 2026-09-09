@@ -1,5 +1,7 @@
 import type { CatReceipt } from "./receipts";
 
+const SITE = "https://angrycats.vercel.app/";
+
 export function receiptShareText(r: CatReceipt): string {
   const label = r.name?.trim() || `Cat #${r.id}`;
   return (
@@ -7,60 +9,126 @@ export function receiptShareText(r: CatReceipt): string {
     `${label} · #${r.id}\n` +
     `${r.lat.toFixed(2)}°, ${r.lng.toFixed(2)}°\n` +
     `Truce sealed. $0.99 well spent.\n` +
-    `https://angrycats.vercel.app/`
+    SITE
   );
 }
 
 export function shareUrls(r: CatReceipt) {
   const text = receiptShareText(r);
   const encoded = encodeURIComponent(text);
-  const page = encodeURIComponent("https://angrycats.vercel.app/");
+  const page = encodeURIComponent(SITE);
   return {
     whatsapp: `https://wa.me/?text=${encoded}`,
     telegram: `https://t.me/share/url?url=${page}&text=${encoded}`,
     facebook: `https://www.facebook.com/sharer/sharer.php?u=${page}&quote=${encoded}`,
     twitter: `https://twitter.com/intent/tweet?text=${encoded}`,
-    // Instagram has no web share-for-feed API; open IG and user pastes
     instagram: "https://www.instagram.com/",
   };
 }
 
-/** Minimal single-page PDF (no external deps) */
+function escapePdf(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+
+/** Certificate-style single-page PDF with Angry Cats mark (top right) */
 export function downloadReceiptPdf(r: CatReceipt): void {
   const label = r.name?.trim() || `Cat #${r.id}`;
-  const when = new Date(r.bribed_at).toLocaleString();
-  const lines = [
-    "MILLION ANGRY CATS",
-    "OFFICIAL TRUCE RECEIPT",
-    "",
-    `Cat: ${label}`,
-    `Serial: #${r.id}`,
-    `Coordinates: ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}`,
-    `Bribed: ${when}`,
-    "",
-    "Amount: USD 0.99",
-    "Status: CEASEFIRE (probationary)",
-    "",
-    "Valid for bragging rights worldwide.",
-    "Cat may still ignore you in person.",
-    "",
-    "https://angrycats.vercel.app/",
-  ];
-
-  const escapePdf = (s: string) =>
-    s.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
-
-  const contentLines: string[] = ["BT", "/F1 12 Tf", "50 750 Td", "16 TL"];
-  lines.forEach((line, i) => {
-    if (i === 0) {
-      contentLines.push(`/F1 18 Tf (${escapePdf(line)}) Tj`, "T*");
-      contentLines.push(`/F1 12 Tf`);
-    } else {
-      contentLines.push(`(${escapePdf(line)}) Tj`, "T*");
-    }
+  const when = new Date(r.bribed_at).toLocaleString(undefined, {
+    dateStyle: "long",
+    timeStyle: "short",
   });
-  contentLines.push("ET");
-  const stream = contentLines.join("\n");
+  const coords = `${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}`;
+
+  // Page: 612 x 792 (letter). Certificate frame inset ~36.
+  // Logo badge top-right around (520, 700)
+  const graphics = [
+    // Outer frame
+    "2 w",
+    "36 36 540 720 re S",
+    // Inner frame
+    "0.75 w",
+    "48 48 516 696 re S",
+    // Accent line under header
+    "1.5 w",
+    "72 640 m 540 640 l S",
+    // Logo circle (top right)
+    "1 w",
+    "520 705 28 0 360 arc S",
+    // Simple cat face inside circle (angry mark)
+    // ears
+    "508 718 m 512 730 l 516 718 l S",
+    "524 718 m 528 730 l 532 718 l S",
+    // eyes
+    "512 708 m 514 708 l S",
+    "526 708 m 528 708 l S",
+    // frown
+    "512 698 m 520 694 528 698 c S",
+  ].join("\n");
+
+  const textOps: string[] = [];
+  const addText = (
+    str: string,
+    x: number,
+    y: number,
+    size: number,
+    center = false
+  ) => {
+    const s = escapePdf(str);
+    if (center) {
+      // approximate center with width estimate 0.5*size*len
+      const approx = str.length * size * 0.45;
+      const cx = x - approx / 2;
+      textOps.push(`BT /F1 ${size} Tf ${cx.toFixed(1)} ${y} Td (${s}) Tj ET`);
+    } else {
+      textOps.push(`BT /F1 ${size} Tf ${x} ${y} Td (${s}) Tj ET`);
+    }
+  };
+
+  addText("MILLION ANGRY CATS", 306, 700, 11, true);
+  addText("CERTIFICATE OF TRUCE", 306, 672, 22, true);
+  addText("This certifies that a formal bribe was accepted", 306, 615, 11, true);
+  addText("and a probationary ceasefire is hereby declared.", 306, 598, 11, true);
+
+  addText("IN HONOR OF", 306, 555, 10, true);
+  addText(label, 306, 525, 24, true);
+
+  addText(`Serial No.  #${r.id}`, 90, 470, 12, false);
+  addText(`Coordinates  ${coords}`, 90, 448, 12, false);
+  addText(`Date of truce  ${when}`, 90, 426, 12, false);
+  addText("Consideration  USD 0.99 (or package total)", 90, 404, 12, false);
+  addText("Status  CEASEFIRE — probationary", 90, 382, 12, false);
+
+  addText(
+    "Valid for bragging rights worldwide. The cat may still ignore you in person.",
+    306,
+    320,
+    10,
+    true
+  );
+  addText(
+    "Part 2: your cats may check in. Care system in the works.",
+    306,
+    300,
+    9,
+    true
+  );
+
+  // Signature lines
+  textOps.push("1 w");
+  // drawn as graphics in stream instead
+  const sigGraphics = ["0.8 w", "90 180 m 250 180 l S", "360 180 m 520 180 l S"].join(
+    "\n"
+  );
+  addText("Authorized briber", 90, 160, 9, false);
+  addText("Office of Feline Diplomacy", 360, 160, 9, false);
+  addText(SITE.replace("https://", ""), 306, 100, 10, true);
+  addText("Not a legal instrument. Extremely official vibes only.", 306, 80, 8, true);
+
+  // Logo label under circle
+  addText("ANGRY", 520, 668, 7, true);
+  addText("CATS", 520, 658, 7, true);
+
+  const stream = [graphics, sigGraphics, ...textOps].join("\n");
 
   const objects: string[] = [];
   objects.push("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
@@ -96,7 +164,7 @@ export function downloadReceiptPdf(r: CatReceipt): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `truce-receipt-cat-${r.id}.pdf`;
+  a.download = `truce-certificate-cat-${r.id}.pdf`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -106,9 +174,9 @@ export async function nativeShare(r: CatReceipt): Promise<boolean> {
   if (typeof navigator !== "undefined" && navigator.share) {
     try {
       await navigator.share({
-        title: "Million Angry Cats — Truce Receipt",
+        title: "Million Angry Cats — Truce Certificate",
         text,
-        url: "https://angrycats.vercel.app/",
+        url: SITE,
       });
       return true;
     } catch {

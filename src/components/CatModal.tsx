@@ -153,15 +153,21 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
 
           {lastReceipt ? (
             <div className="w-full text-left space-y-3">
-              <div className="rounded-2xl border border-[#ffc857]/30 bg-[#ffc857]/10 p-4">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-[#ffc857] font-bold mb-2">
-                  Official truce receipt
+              <div className="rounded-2xl border-2 border-[#ffc857]/35 bg-[#ffc857]/10 p-4 relative">
+                <div className="absolute top-3 right-3 rounded-full border border-[#ffc857]/40 bg-[#140f0e]/80 p-1">
+                  <CatIcon mood="angry" size={32} />
+                </div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[#ffc857] font-bold mb-0.5 pr-12">
+                  Certificate of Truce
                 </p>
-                <p className="font-display text-xl font-bold text-[#f6efe6]">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-white/35 mb-3 pr-12">
+                  Million Angry Cats
+                </p>
+                <p className="font-display text-xl font-bold text-[#f6efe6] pr-12">
                   {lastReceipt.name?.trim() || `Cat #${lastReceipt.id}`}
                 </p>
                 <p className="text-xs text-white/45 mt-1">Serial #{lastReceipt.id}</p>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-white/60">
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-white/60 border-t border-white/10 pt-3">
                   <div>
                     <div className="text-white/30 uppercase text-[10px]">Coordinates</div>
                     {lastReceipt.lat.toFixed(3)}°, {lastReceipt.lng.toFixed(3)}°
@@ -172,7 +178,7 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
                   </div>
                 </div>
                 <p className="text-[11px] text-white/40 mt-3 italic">
-                  Valid for bragging rights. Cat may still ignore you in person.
+                  Probationary ceasefire. Valid for bragging rights worldwide.
                 </p>
               </div>
               <ShareReceipt receipt={lastReceipt} variant="dark" />
