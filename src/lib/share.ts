@@ -120,7 +120,7 @@ function buildPdf(
   addText(`Coordinates  ${coords}`, 90, 448, 12, false);
   addText(`Date of truce  ${when}`, 90, 426, 12, false);
   addText("Consideration  USD 0.99 (or package total)", 90, 404, 12, false);
-  addText("Status  CEASEFIRE — probationary", 90, 382, 12, false);
+  addText("Status  CEASEFIRE (probationary)", 90, 382, 12, false);
   addText(
     "Valid for bragging rights worldwide. The cat may still ignore you in person.",
     306,
@@ -136,9 +136,41 @@ function buildPdf(
     true
   );
 
-  const sigGraphics = ["0.8 w", "90 180 m 250 180 l S", "360 180 m 520 180 l S"].join(
-    "\n"
-  );
+  // Signature lines + official cat-paw stamp (Office of Feline Diplomacy)
+  const sigGraphics = [
+    "0.8 w",
+    "90 180 m 250 180 l S",
+    "360 180 m 520 180 l S",
+    // Cat paw stamp above right signature (approx center 440, 205)
+    "1.2 w",
+    // main pad
+    "458 198 m",
+    "458 208.5 449.5 217 439 217 c",
+    "428.5 217 420 208.5 420 198 c",
+    "420 187.5 428.5 179 439 179 c",
+    "449.5 179 458 187.5 458 198 c S",
+    // toe pads (4)
+    "422 218 m",
+    "422 223.5 417.5 228 412 228 c",
+    "406.5 228 402 223.5 402 218 c",
+    "402 212.5 406.5 208 412 208 c",
+    "417.5 208 422 212.5 422 218 c S",
+    "434 224 m",
+    "434 229.5 429.5 234 424 234 c",
+    "418.5 234 414 229.5 414 224 c",
+    "414 218.5 418.5 214 424 214 c",
+    "429.5 214 434 218.5 434 224 c S",
+    "454 224 m",
+    "454 229.5 449.5 234 444 234 c",
+    "438.5 234 434 229.5 434 224 c",
+    "434 218.5 438.5 214 444 214 c",
+    "449.5 214 454 218.5 454 224 c S",
+    "466 218 m",
+    "466 223.5 461.5 228 456 228 c",
+    "450.5 228 446 223.5 446 218 c",
+    "446 212.5 450.5 208 456 208 c",
+    "461.5 208 466 212.5 466 218 c S",
+  ].join("\n");
   addText("Authorized briber", 90, 160, 9, false);
   addText("Office of Feline Diplomacy", 360, 160, 9, false);
   addText(SITE.replace("https://", ""), 306, 100, 10, true);
