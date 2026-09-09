@@ -36,16 +36,22 @@ function escapePdf(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 }
 
-async function loadFaviconJpeg(
+type PdfImage = { bytes: Uint8Array; w: number; h: number };
+
+async function loadAssetJpeg(
+  path: string,
   size = 128
-): Promise<{ bytes: Uint8Array; w: number; h: number } | null> {
+): Promise<PdfImage | null> {
   try {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    const url = faviconUrl();
+    const base = import.meta.env.BASE_URL || "/";
+    const url = path.startsWith("http")
+      ? path
+      : `${base}${path.replace(/^\//, "")}`;
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
-      img.onerror = () => reject(new Error("favicon load failed"));
+      img.onerror = () => reject(new Error("asset load failed: " + url));
       img.src = url;
     });
     const canvas = document.createElement("canvas");
@@ -55,7 +61,10 @@ async function loadFaviconJpeg(
     if (!ctx) return null;
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, size, size);
-    ctx.drawImage(img, 0, 0, size, size);
+    const scale = Math.min(size / img.width, size / img.height);
+    const w = img.width * scale;
+    const h = img.height * scale;
+    ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
     const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
     const b64 = dataUrl.split(",")[1];
     const bin = atob(b64);
@@ -69,7 +78,8 @@ async function loadFaviconJpeg(
 
 function buildPdf(
   r: CatReceipt,
-  logo: { bytes: Uint8Array; w: number; h: number } | null
+  logo: PdfImage | null,
+  paw: PdfImage | null
 ): Blob {
   const label = r.name?.trim() || `Cat #${r.id}`;
   const when = new Date(r.bribed_at).toLocaleString(undefined, {
@@ -87,10 +97,19 @@ function buildPdf(
     "72 640 m 540 640 l S",
   ].join("\n");
 
-  // Place favicon top-right inside frame (about 56pt square)
-  const logoOps = logo
-    ? ["q", "56 0 0 56 500 678 cm", "/Im1 Do", "Q"].join("\n")
-    : "";
+  const drawOps: string[] = [graphics];
+  if (logo) {
+    drawOps.push("q", "56 0 0 56 500 678 cm", "/Im1 Do", "Q");
+  }
+  if (paw) {
+    // Official feline sign-off above right signature line
+    drawOps.push("q", "52 0 0 52 414 186 cm", "/Im2 Do", "Q");
+  }
+  drawOps.push(
+    "0.8 w",
+    "90 180 m 250 180 l S",
+    "360 180 m 520 180 l S"
+  );
 
   const textOps: string[] = [];
   const addText = (
@@ -135,113 +154,66 @@ function buildPdf(
     9,
     true
   );
-
-  // Signature lines + official cat-paw stamp (Office of Feline Diplomacy)
-  const sigGraphics = [
-    "0.8 w",
-    "90 180 m 250 180 l S",
-    "360 180 m 520 180 l S",
-    // Cat paw stamp above right signature (approx center 440, 205)
-    "1.2 w",
-    // main pad
-    "458 198 m",
-    "458 208.5 449.5 217 439 217 c",
-    "428.5 217 420 208.5 420 198 c",
-    "420 187.5 428.5 179 439 179 c",
-    "449.5 179 458 187.5 458 198 c S",
-    // toe pads (4)
-    "422 218 m",
-    "422 223.5 417.5 228 412 228 c",
-    "406.5 228 402 223.5 402 218 c",
-    "402 212.5 406.5 208 412 208 c",
-    "417.5 208 422 212.5 422 218 c S",
-    "434 224 m",
-    "434 229.5 429.5 234 424 234 c",
-    "418.5 234 414 229.5 414 224 c",
-    "414 218.5 418.5 214 424 214 c",
-    "429.5 214 434 218.5 434 224 c S",
-    "454 224 m",
-    "454 229.5 449.5 234 444 234 c",
-    "438.5 234 434 229.5 434 224 c",
-    "434 218.5 438.5 214 444 214 c",
-    "449.5 214 454 218.5 454 224 c S",
-    "466 218 m",
-    "466 223.5 461.5 228 456 228 c",
-    "450.5 228 446 223.5 446 218 c",
-    "446 212.5 450.5 208 456 208 c",
-    "461.5 208 466 212.5 466 218 c S",
-  ].join("\n");
   addText("Authorized briber", 90, 160, 9, false);
   addText("Office of Feline Diplomacy", 360, 160, 9, false);
   addText(SITE.replace("https://", ""), 306, 100, 10, true);
   addText("Not a legal instrument. Extremely official vibes only.", 306, 80, 8, true);
 
-  const stream = [graphics, logoOps, sigGraphics, ...textOps].join("\n");
+  const stream = [...drawOps, ...textOps].join("\n");
 
-  const objects: string[] = [];
-  // 1 catalog, 2 pages, 3 page, 4 contents, 5 font, [6 image]
-  objects.push("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
-  objects.push(
-    "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
-  );
+  const images: { name: string; img: PdfImage }[] = [];
+  if (logo) images.push({ name: "Im1", img: logo });
+  if (paw) images.push({ name: "Im2", img: paw });
 
-  if (logo) {
-    objects.push(
-      "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> /XObject << /Im1 6 0 R >> >> >>\nendobj\n"
-    );
-  } else {
-    objects.push(
-      "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n"
-    );
-  }
+  const xobjectDict =
+    images.length === 0
+      ? ""
+      : "/XObject << " +
+        images.map((im, i) => `/${im.name} ${6 + i} 0 R`).join(" ") +
+        " >> ";
 
-  objects.push(
-    `4 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj\n`
-  );
-  objects.push(
-    "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n"
-  );
-
-  if (logo) {
-    // JPEG image XObject — binary will be appended carefully
-    objects.push(
-      `6 0 obj\n<< /Type /XObject /Subtype /Image /Width ${logo.w} /Height ${logo.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${logo.bytes.length} >>\nstream\n`
-    );
-  }
-
-  // Build PDF with binary-safe concatenation for image
   const encoder = new TextEncoder();
   const parts: Uint8Array[] = [];
-  const pushStr = (s: string) => parts.push(encoder.encode(s));
-
-  pushStr("%PDF-1.4\n");
   const offsets: number[] = [0];
-  let pos = parts.reduce((n, p) => n + p.length, 0);
+  let pos = 0;
 
-  const pushObj = (s: string) => {
-    offsets.push(pos);
-    const b = encoder.encode(s);
+  const pushBytes = (b: Uint8Array) => {
     parts.push(b);
     pos += b.length;
   };
+  const pushStr = (s: string) => pushBytes(encoder.encode(s));
+  const beginObj = () => {
+    offsets.push(pos);
+  };
 
-  // objects 1-5 (and start of 6)
-  for (let i = 0; i < objects.length; i++) {
-    if (i === 5 && logo) {
-      // object 6 header already in objects[5]
-      offsets.push(pos);
-      const header = encoder.encode(objects[i]);
-      parts.push(header);
-      pos += header.length;
-      parts.push(logo.bytes);
-      pos += logo.bytes.length;
-      const end = encoder.encode("\nendstream\nendobj\n");
-      parts.push(end);
-      pos += end.length;
-    } else {
-      pushObj(objects[i]);
-    }
-  }
+  pushStr("%PDF-1.4\n");
+
+  beginObj();
+  pushStr("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+  beginObj();
+  pushStr("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
+  beginObj();
+  pushStr(
+    `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> ${xobjectDict}>> >>\nendobj\n`
+  );
+  beginObj();
+  pushStr(
+    `4 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj\n`
+  );
+  beginObj();
+  pushStr(
+    "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n"
+  );
+
+  images.forEach((im, i) => {
+    const objNum = 6 + i;
+    beginObj();
+    pushStr(
+      `${objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${im.img.w} /Height ${im.img.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${im.img.bytes.length} >>\nstream\n`
+    );
+    pushBytes(im.img.bytes);
+    pushStr("\nendstream\nendobj\n");
+  });
 
   const xrefStart = pos;
   let xref = `xref\n0 ${offsets.length}\n`;
@@ -263,10 +235,13 @@ function buildPdf(
   return new Blob([out], { type: "application/pdf" });
 }
 
-/** Certificate PDF using site favicon as the official mark (top right) */
+/** Certificate PDF: favicon top-right + official paw stamp for Feline Diplomacy */
 export async function downloadReceiptPdf(r: CatReceipt): Promise<void> {
-  const logo = await loadFaviconJpeg(128);
-  const blob = buildPdf(r, logo);
+  const [logo, paw] = await Promise.all([
+    loadAssetJpeg("favicon.svg", 128),
+    loadAssetJpeg("paw-stamp.png", 160),
+  ]);
+  const blob = buildPdf(r, logo, paw);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
