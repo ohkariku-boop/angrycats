@@ -122,7 +122,7 @@ export function ShareReceipt({ receipt, variant = "dark" }: Props) {
   return (
     <div className="w-full space-y-3">
       <div className="flex flex-wrap gap-2 justify-center">
-        <button type="button" className={primaryBtn} onClick={() => downloadReceiptPdf(receipt)}>
+        <button type="button" className={primaryBtn} onClick={() => { void downloadReceiptPdf(receipt); }}>
           <IconDownload className="w-4 h-4" />
           PDF
         </button>

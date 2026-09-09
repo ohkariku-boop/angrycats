@@ -440,8 +440,8 @@ function App() {
                 className="rounded-3xl border-2 border-[#140f0e]/12 bg-gradient-to-b from-white to-[#f6efe6]/80 p-5 shadow-sm relative overflow-hidden"
               >
                 <div className="absolute top-3 right-3 opacity-90">
-                  <div className="rounded-full border-2 border-[#140f0e]/10 bg-white p-1 shadow-sm">
-                    <CatIcon mood="angry" size={36} />
+                  <div className="rounded-full border-2 border-[#140f0e]/10 bg-white p-1.5 shadow-sm w-12 h-12 flex items-center justify-center overflow-hidden">
+                    <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="Angry Cats" className="w-9 h-9" width={36} height={36} />
                   </div>
                 </div>
                 <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-amber-700/90 mb-1 pr-14">

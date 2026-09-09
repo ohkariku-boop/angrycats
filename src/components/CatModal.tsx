@@ -154,8 +154,8 @@ export function CatModal({ cat, onClose, onMadeHappy }: CatModalProps) {
           {lastReceipt ? (
             <div className="w-full text-left space-y-3">
               <div className="rounded-2xl border-2 border-[#ffc857]/35 bg-[#ffc857]/10 p-4 relative">
-                <div className="absolute top-3 right-3 rounded-full border border-[#ffc857]/40 bg-[#140f0e]/80 p-1">
-                  <CatIcon mood="angry" size={32} />
+                <div className="absolute top-3 right-3 rounded-full border border-[#ffc857]/40 bg-[#140f0e]/80 p-1.5 w-11 h-11 flex items-center justify-center overflow-hidden">
+                  <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="Angry Cats" className="w-8 h-8" width={32} height={32} />
                 </div>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-[#ffc857] font-bold mb-0.5 pr-12">
                   Certificate of Truce
