@@ -41,6 +41,7 @@ export function downloadReceiptPdf(r: CatReceipt): void {
 
   // Page: 612 x 792 (letter). Certificate frame inset ~36.
   // Logo badge top-right around (520, 700)
+  // Circle at (520,705) r=28 via Bezier (PDF has no arc operator)
   const graphics = [
     // Outer frame
     "2 w",
@@ -51,18 +52,24 @@ export function downloadReceiptPdf(r: CatReceipt): void {
     // Accent line under header
     "1.5 w",
     "72 640 m 540 640 l S",
-    // Logo circle (top right)
-    "1 w",
-    "520 705 28 0 360 arc S",
-    // Simple cat face inside circle (angry mark)
-    // ears
-    "508 718 m 512 730 l 516 718 l S",
-    "524 718 m 528 730 l 532 718 l S",
-    // eyes
-    "512 708 m 514 708 l S",
-    "526 708 m 528 708 l S",
-    // frown
-    "512 698 m 520 694 528 698 c S",
+    // Logo circle top-right
+    "1.25 w",
+    "548 705 m",
+    "548 720.46 534.46 734 520 734 c",
+    "505.54 734 492 720.46 492 705 c",
+    "492 689.54 505.54 676 520 676 c",
+    "534.46 676 548 689.54 548 705 c",
+    "S",
+    // Cat ears
+    "505 715 m 512 732 l 519 715 l S",
+    "521 715 m 528 732 l 535 715 l S",
+    // Eyes (small dashes)
+    "2 w",
+    "508 708 m 514 708 l S",
+    "526 708 m 532 708 l S",
+    // Frown
+    "1.25 w",
+    "510 696 m 520 690 530 696 c S",
   ].join("\n");
 
   const textOps: string[] = [];
