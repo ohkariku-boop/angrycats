@@ -7,14 +7,14 @@ export function receiptShareText(r: CatReceipt): string {
     `${label} · #${r.id}\n` +
     `${r.lat.toFixed(2)}°, ${r.lng.toFixed(2)}°\n` +
     `Truce sealed. $0.99 well spent.\n` +
-    `https://ohkariku-boop.github.io/angrycats/`
+    `https://angrycats.vercel.app/`
   );
 }
 
 export function shareUrls(r: CatReceipt) {
   const text = receiptShareText(r);
   const encoded = encodeURIComponent(text);
-  const page = encodeURIComponent("https://ohkariku-boop.github.io/angrycats/");
+  const page = encodeURIComponent("https://angrycats.vercel.app/");
   return {
     whatsapp: `https://wa.me/?text=${encoded}`,
     telegram: `https://t.me/share/url?url=${page}&text=${encoded}`,
@@ -44,7 +44,7 @@ export function downloadReceiptPdf(r: CatReceipt): void {
     "Valid for bragging rights worldwide.",
     "Cat may still ignore you in person.",
     "",
-    "https://ohkariku-boop.github.io/angrycats/",
+    "https://angrycats.vercel.app/",
   ];
 
   const escapePdf = (s: string) =>
@@ -108,7 +108,7 @@ export async function nativeShare(r: CatReceipt): Promise<boolean> {
       await navigator.share({
         title: "Million Angry Cats — Truce Receipt",
         text,
-        url: "https://ohkariku-boop.github.io/angrycats/",
+        url: "https://angrycats.vercel.app/",
       });
       return true;
     } catch {
